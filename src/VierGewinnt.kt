@@ -33,14 +33,31 @@ class VierGewinnt(
 
     fun spielzug_computer(selbst: Spieler) {
         //berechne die zweierketten mit freiem platz daneben
-        for (i in 0..feld.hoehe - 1)
-            for (j in 0..feld.breite - 1)
+        for (i in 0..<feld.hoehe)
+            for (j in 0..<feld.breite)
             //x für ersten spieler,o für zweiten
             //wenn man gegen computer spielt, spielt der immer o
-                if (this.feld.matrix[i][j])
+           val aktuellesFeld = this.feld.matrix[i][j]
 
-                    this.feld.matrix
-        //wenn nicht, dann random
+            if (aktuellesFeld != null && aktuellesFeld.art != SpielerArt.COMPUTER)
+                umgebung_checken(i, j  )
+
+    }
+    fun umgebung_checken( i : Int, j: Int){
+        val aktuelles_feld = this.feld.matrix[i][j]
+        var x_in_reihe=0
+      //nach  unten schauen
+        if (aktuelles_feld != null) {
+            if  ( this.feld.matrix[i+1][j]!= null && aktuelles_feld.art != SpielerArt.COMPUTER)
+                x_in_reihe+=1
+                umgebung_checken(i+1,j)
+        }
+            umgebung_checken(i+1,j)
+        if (aktuelles_feld != null) {
+            if  ( this.feld.matrix[i][j+1]!= null && aktuelles_feld.art != SpielerArt.COMPUTER)
+                x_in_reihe+=1
+                umgebung_checken(i,j+1)
+        }
 
 
     }
