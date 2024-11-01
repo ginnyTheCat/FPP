@@ -18,6 +18,20 @@ class VierGewinnt(
     override fun durchgang() {
         TODO("Not yet implemented")
     }
+
+    fun spielzug_computer() {
+        //berechne die zweierketten mit freiem platz daneben
+        for (i in 0..feld.hoehe-1)
+            for (j in 0..feld.breite -1)
+                //x für ersten spieler,o für zweiten
+                //wenn man gegen computer spielt, spielt der immer o
+                if (this.feld.matrix[i][j])
+
+        this.feld.matrix
+        //wenn nicht, dann random
+
+
+    }
 }
 
 
