@@ -1,3 +1,4 @@
 fun main() {
-    println("Hello World!")
+    val vierGewinnt = VierGewinnt(Spieler("Test", SpielerArt.MENSCH))
+    vierGewinnt.feld.darstellen()
 }
