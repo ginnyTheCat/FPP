@@ -1,11 +1,28 @@
 class MatrixSpielfeld(hoehe: Int, breite: Int) : Spielfeld(hoehe, breite) {
-    private val matrix: Array<Array<Spieler?>> = Array(hoehe) { Array(breite) { null } }
+    val matrix: Array<Array<Spieler?>> = Array(hoehe) { Array(breite) { null } }
 
     override fun darstellen() {
-        for (i in 0..hoehe - 1) {
-            for (j in 0..breite - 1) {
-                print(matrix[i][j]);
-                print(" ");
+        print("-");
+        for (j in 0..<breite) {
+            print("--");
+        }
+        println();
+
+        for (i in 0..<hoehe) {
+            print("|")
+            for (j in 0..<breite) {
+                if (matrix[i][j] != null) {
+                    print(matrix[i][j]);
+                } else {
+                    print(" ");
+                }
+                print("|");
+            }
+            println();
+
+            print("-");
+            for (j in 0..<breite) {
+                print("--");
             }
             println();
         }
