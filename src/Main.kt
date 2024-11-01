@@ -1,4 +1,9 @@
 fun main() {
-    val vierGewinnt = VierGewinnt(Spieler("Test", SpielerArt.MENSCH))
-    vierGewinnt.feld.darstellen()
+    val vierGewinnt = Futtern(
+        arrayOf(
+            Spieler("X", SpielerArt.MENSCH),
+            Spieler("O", SpielerArt.COMPUTER),
+        )
+    )
+    vierGewinnt.durchgang()
 }

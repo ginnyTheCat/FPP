@@ -1,13 +1,18 @@
 class VierGewinnt(
     spieler: Array<Spieler>,
-    override val feld: MatrixSpielfeld = MatrixSpielfeld(run {
-        print("Bitte Höhe eingeben: ")
-        readln().toInt()
-    }, run {
-        print("Bitte Breite eingeben: ")
-        readln().toInt()
-    })
+    override val feld: MatrixSpielfeld
 ) : Spiel(spieler, feld) {
+
+    constructor(spieler: Array<Spieler>) : this(
+        spieler,
+        MatrixSpielfeld({
+            print("Bitte Höhe eingeben: ")
+            readln().toInt()
+        }(), {
+            print("Bitte Breite eingeben: ")
+            readln().toInt()
+        }())
+    )
 
     var amZugIndex = 0
 
@@ -28,7 +33,9 @@ class VierGewinnt(
     }
 
     override fun durchgang() {
-        TODO("Not yet implemented")
+        for (s in spieler) {
+            spielzug()
+        }
     }
 
     fun spielzug_computer(selbst: Spieler) {

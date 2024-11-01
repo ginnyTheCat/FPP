@@ -1,31 +1,62 @@
 class Futtern(
     spieler: Array<Spieler>,
-    override val feld: MatrixSpielfeld = MatrixSpielfeld(run {
-        print("Bitte Höhe eingeben: ")
-        readln().toInt()
-    }, run {
-        print("Bitte Breite eingeben: ")
-        readln().toInt()
-    })
+    override val feld: MatrixSpielfeld
 ) : Spiel(spieler, feld) {
 
-    val turn = 0
+    constructor(spieler: Array<Spieler>) : this(
+        spieler,
+        MatrixSpielfeld({
+            print("Bitte Höhe eingeben: ")
+            readln().toInt()
+        }(), {
+            print("Bitte Breite eingeben: ")
+            readln().toInt()
+        }())
+    )
+
+    var amZugIndex = 0
 
     override fun spielzug() {
-        val spieler = spieler[turn]
-        println("${spieler.name} am Zug")
-        when (spieler.art) {
+        feld.darstellen()
+
+        val amZugSpieler = spieler[amZugIndex]
+        println("${amZugSpieler.name} am Zug")
+        when (amZugSpieler.art) {
             SpielerArt.MENSCH -> {
-                TODO()
+                spielzug_spieler(amZugSpieler)
             }
 
             SpielerArt.COMPUTER -> {
                 TODO()
             }
         }
+
+        amZugIndex++;
+        if (amZugIndex == spieler.size) {
+            amZugIndex = 0
+        }
+    }
+
+    fun spielzug_spieler(selbst: Spieler) {
+        while (true) {
+            print("An X-Position setzen: ")
+            val x = readln().toInt()
+
+            print("An Y-Position setzen: ")
+            val y = readln().toInt()
+
+            if (feld.matrix[y][x] == null) {
+                feld.matrix[y][x] = selbst
+                break
+            } else {
+                println("Feld schon belegt, anderes Feld wählen")
+            }
+        }
     }
 
     override fun durchgang() {
-        TODO("Not yet implemented")
+        for (s in spieler) {
+            spielzug()
+        }
     }
 }
