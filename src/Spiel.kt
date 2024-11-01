@@ -1,5 +1,5 @@
 abstract class Spiel(
-    val spieler: Spieler,
+    val spieler: Array<Spieler>,
     open val feld: Spielfeld,
 ) {
     abstract fun spielzug()
