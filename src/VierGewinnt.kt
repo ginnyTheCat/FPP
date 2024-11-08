@@ -47,6 +47,22 @@ class VierGewinnt(
         return false
     }
 
+    private fun kannWaagerecht(x: Int, y: Int, computer: Spieler): Boolean {
+        //kann man links anbauen?
+        if (x == 0) {
+            //kann man rechts anbauen?
+            if (x == feld.breite - 1) {
+                return false
+            } else {
+                //rechts checken
+                if (feld.matrix[x][y] == null && feld.matrix[x][y - 1] != null) {
+
+                }
+            }
+
+        }
+    }
+
     override fun durchgang() {
         for (s in spieler) {
             spielzug()
@@ -70,49 +86,87 @@ class VierGewinnt(
         }
     }
 
-    fun spielzug_computer(selbst: Spieler) {
+    fun spielzug_computer(computer: Spieler) {
         //berechne die zweierketten mit freiem platz daneben
-
-
-        for (i in 0..<feld.hoehe){
+        for (i in 0..<feld.hoehe) {
             for (j in 0..<feld.breite) {
                 val aktuellesFeld = this.feld.matrix[i][j]
 
-                if (aktuellesFeld != null && aktuellesFeld == selbst){
-                    umgebung_checken(i, j, selbst)}
+                if (aktuellesFeld != null && aktuellesFeld == computer) {
+                    if (umgebung_checken(i, j, computer) == false) {
+                        defaultZug(computer);
+                    }
+                }
             }
-    }}
+        }
+    }
+
     //erste koordinate ist zeile, die zweite ist spalte
-    private fun umgebung_checken(i : Int, j: Int, computer:Spieler){
+    private fun umgebung_checken(i: Int, j: Int, computer: Spieler): Boolean {
         //gibt true oder false zurpück, je nachdem, ob ein match gefunden wurde für einen strategisch gute zug
         val aktuellesFeld = this.feld.matrix[i][j]
-        var x_in_reihe=0
-      //nach  unten schauen
+        var x_in_reihe = 0
+        //nach  unten schauen
         if (aktuellesFeld != null) {
-            if  ( this.feld.matrix[i+1][j]!= null && this.feld.matrix[i+1][j]!=  computer){
-                x_in_reihe+=1
-                umgebung_checken(i+1,j,computer)}
+            if (this.feld.matrix[i + 1][j] != null && this.feld.matrix[i + 1][j] != computer) {
+                x_in_reihe += 1
+                umgebung_checken(i + 1, j, computer)
+            }
 
-        if (x_in_reihe==2){
+            if (x_in_reihe == 2) {
 
-            if (this.einwerfen(x, computer)== false){
+                if (this.kannEinwerfen(j) == true) {
+                    this.einwerfen(j, computer);
+                    return true;
+                }
+            }
 
+        }
+
+        //waagerechte linien checken
+
+
+        //zuerst rausfinden, ob es diese linien gibt,
+        // und dann, ob sie verhinderbar sind durch draufstapeln.
+        // wenn draufstapeln nicht möglich, weitersuchen.
+
+        if (aktuellesFeld != null) {
+            if (this.feld.matrix[i][j + 1] != null && this.feld.matrix[i][j + 1] != computer) {
+                x_in_reihe += 1
+                umgebung_checken(i, j + 1, computer)
+            }
+            if (x_in_reihe == 2) {
+
+                if (this.kannEinwerfen(j) == true) {
+                    this.einwerfen(j, computer);
+                    return true;
+                }
             }
         }
 
-            //liste hier mit tupeln aus i und j füllen, damit man darauf zugreifen kann
+        fun randomZug(computer: Spieler) {
+            val rnds = (0..feld.breite - 1).random()
+
+            if (this.kannEinwerfen(rnds) == true) {
+                this.einwerfen(rnds, computer);
+            } else {
+                randomZug(computer)
+            }
         }
 
-        if (aktuellesFeld != null) {
-            if  ( this.feld.matrix[i][j+1]!= null && this.feld.matrix[i][j+1]!=  computer){
-                x_in_reihe+=1
-                umgebung_checken(i, j + 1, computer)}
+
+        fun defaultZug(computer: Spieler) {
+
+            if (this.kannEinwerfen(feld.breite) == true) {
+                this.einwerfen(feld.breite, computer);
+
+            } else {
+                randomZug(computer);
+            }
+
+
         }
 
-        fun defaultZug(breite: Int){
-            this.einwerfen(breite, )
-
-        }
 
     }
 }
