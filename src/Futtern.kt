@@ -1,22 +1,14 @@
 class Futtern(
+    hoehe: Int,
+    breite: Int,
     spieler: Array<Spieler>,
-    override val feld: MatrixSpielfeld
+    override val feld: MatrixSpielfeld = MatrixSpielfeld(hoehe, breite)
 ) : Spiel(spieler, feld) {
-
-    constructor(spieler: Array<Spieler>) : this(
-        spieler,
-        MatrixSpielfeld({
-            print("Bitte Höhe eingeben: ")
-            readln().toInt()
-        }(), {
-            print("Bitte Breite eingeben: ")
-            readln().toInt()
-        }())
-    )
 
     var amZugIndex = 0
 
-    override fun spielzug() {
+    override fun spielzug(): Ausgang? {
+        println()
         feld.darstellen()
 
         val amZugSpieler = spieler[amZugIndex]
@@ -35,18 +27,19 @@ class Futtern(
         if (amZugIndex == spieler.size) {
             amZugIndex = 0
         }
+
+        return this.feld.matrix[0][0]?.let { Ausgang.Verloren(it) }
     }
 
     private fun spielzug_spieler(selbst: Spieler) {
         while (true) {
-            print("An X-Position setzen: ")
+            print("In Spalte setzen: ")
             val x = readln().toInt()
 
-            print("An Y-Position setzen: ")
+            print("In Zeile setzen: ")
             val y = readln().toInt()
 
-            if (feld.matrix[y][x] == null) {
-                feld.matrix[y][x] = selbst
+            if (this.setzen(x - 1, y - 1, selbst)) {
                 break
             } else {
                 println("Feld schon belegt, anderes Feld wählen")
@@ -70,9 +63,28 @@ class Futtern(
     }
 
 
-    override fun durchgang() {
+    override fun durchgang(): Ausgang? {
         for (s in spieler) {
-            spielzug()
+            val ausgang = spielzug()
+            if (ausgang != null) {
+                return ausgang
+            }
         }
+        return null
+    }
+
+    private fun setzen(x: Int, y: Int, spieler: Spieler): Boolean {
+        if (feld.matrix[y][x] != null) {
+            return false
+        }
+
+        for (row in this.feld.matrix.drop(y)) {
+            for (i in row.indices.drop(x)) {
+                if (row[i] == null) {
+                    row[i] = spieler
+                }
+            }
+        }
+        return true
     }
 }
