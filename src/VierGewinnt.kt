@@ -50,23 +50,37 @@ class VierGewinnt(
                     umgebung_checken(i, j, selbst)}
             }
     }}
-    fun umgebung_checken( i : Int, j: Int, selbst:Spieler){
+    //erste koordinate ist zeile, die zweite ist spalte
+    private fun umgebung_checken(i : Int, j: Int, computer:Spieler){
+        //gibt true oder false zurpück, je nachdem, ob ein match gefunden wurde für einen strategisch gute zug
         val aktuellesFeld = this.feld.matrix[i][j]
         var x_in_reihe=0
       //nach  unten schauen
         if (aktuellesFeld != null) {
-            if  ( this.feld.matrix[i+1][j]!= null && aktuellesFeld == selbst){
+            if  ( this.feld.matrix[i+1][j]!= null && this.feld.matrix[i+1][j]!=  computer){
                 x_in_reihe+=1
-                umgebung_checken(i+1,j,selbst)}
+                umgebung_checken(i+1,j,computer)}
+
+        if (x_in_reihe==2){
+
+            if (this.einwerfen(x, computer)== false){
+
+            }
+        }
+
             //liste hier mit tupeln aus i und j füllen, damit man darauf zugreifen kann
         }
 
         if (aktuellesFeld != null) {
-            if  ( this.feld.matrix[i][j+1]!= null && aktuellesFeld == selbst){
+            if  ( this.feld.matrix[i][j+1]!= null && this.feld.matrix[i][j+1]!=  computer){
                 x_in_reihe+=1
-                umgebung_checken(i, j + 1, selbst)}
+                umgebung_checken(i, j + 1, computer)}
         }
 
+        fun defaultZug(breite: Int){
+            this.einwerfen(breite, )
+
+        }
 
     }
 }
