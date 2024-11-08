@@ -9,7 +9,7 @@ fun main() {
         hoehe, breite,
         arrayOf(
             Spieler("X", SpielerArt.MENSCH),
-            Spieler("O", SpielerArt.MENSCH),
+            Spieler("O", SpielerArt.COMPUTER),
         )
     )
 
