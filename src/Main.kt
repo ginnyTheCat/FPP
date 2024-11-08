@@ -1,9 +1,11 @@
 fun main() {
-    val vierGewinnt = Futtern(
+    val vierGewinnt = VierGewinnt(
         arrayOf(
             Spieler("X", SpielerArt.MENSCH),
-            Spieler("O", SpielerArt.COMPUTER),
+            Spieler("O", SpielerArt.MENSCH),
         )
     )
-    vierGewinnt.durchgang()
+    while (true) {
+        vierGewinnt.durchgang()
+    }
 }

@@ -21,12 +21,6 @@ class MatrixSpielfeld(hoehe: Int, breite: Int) : Spielfeld(hoehe, breite) {
                 print("|");
             }
             println();
-
-            print("  -");
-            for (j in 0..<breite) {
-                print("--");
-            }
-            println();
         }
     }
 }

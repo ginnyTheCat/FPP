@@ -37,7 +37,7 @@ class Futtern(
         }
     }
 
-    fun spielzug_spieler(selbst: Spieler) {
+    private fun spielzug_spieler(selbst: Spieler) {
         while (true) {
             print("An X-Position setzen: ")
             val x = readln().toInt()
