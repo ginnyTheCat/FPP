@@ -54,6 +54,22 @@ class Futtern(
         }
     }
 
+    private fun spielzug_computer(selbst: Spieler) {
+        //gewinnstrategie: quadrate vermeiden
+        //wennn quadratisch -> symmetrisch
+        //Sonst anzahl der kästchen gerade halten durch randomisierte kästchen,
+        //bei denen gecheckt wird, ob die übrig bleibdende Anzahl gerade bleibt
+
+        if (feld.breite == feld.hoehe) {
+            //quadratische Strategie
+        } else {
+            //unquadratische strategie
+
+        }
+
+    }
+
+
     override fun durchgang() {
         for (s in spieler) {
             spielzug()
