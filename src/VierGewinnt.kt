@@ -47,9 +47,10 @@ class VierGewinnt(
         return false
     }
 
+    //erste koordinate ist zeile, die zweite ist spalte
     private fun kannWaagerecht(x: Int, y: Int, computer: Spieler): Boolean {
-        //kann man links anbauen?
-        if (x == 0) {
+        //wenn man nicht links anbauen kann...
+        if (x == 0 || (y > 0 && feld.matrix[x][y - 1] != null)) {
             //kann man rechts anbauen?
             if (x == feld.breite - 1) {
                 return false
@@ -129,8 +130,12 @@ class VierGewinnt(
         //zuerst rausfinden, ob es diese linien gibt,
         // und dann, ob sie verhinderbar sind durch draufstapeln.
         // wenn draufstapeln nicht möglich, weitersuchen.
+        //hier speichern, wo der anfang der reihe ist, diesen dann übergeben
 
         if (aktuellesFeld != null) {
+            //speichern das startfeld ein für waagerechtes checken
+            val xGefunden = i
+            val yGefunden = j;
             if (this.feld.matrix[i][j + 1] != null && this.feld.matrix[i][j + 1] != computer) {
                 x_in_reihe += 1
                 umgebung_checken(i, j + 1, computer)
