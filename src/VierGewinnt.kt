@@ -44,6 +44,7 @@ class VierGewinnt(
         return false
     }
 
+    /*
     //erste koordinate ist zeile, die zweite ist spalte
     private fun kannWaagerecht(x: Int, y: Int, computer: Spieler): Boolean {
         //wenn man nicht links anbauen kann...
@@ -59,6 +60,7 @@ class VierGewinnt(
 
         }
     }
+     */
 
     override fun durchgang(): Ausgang? {
         for (s in spieler) {
@@ -159,35 +161,77 @@ class VierGewinnt(
 
     private fun spielzug_computer(computer: Spieler) {
         //berechne die zweierketten mit freiem platz daneben
-        for (i in 0..<feld.hoehe) {
-            for (j in 0..<feld.breite) {
-                val aktuellesFeld = this.feld.matrix[i][j]
-
-                if (aktuellesFeld != null && aktuellesFeld == computer) {
-                    if (umgebung_checken(i, j, computer) == false) {
-                        defaultZug(computer);
-                    }
+        for (y in 1..<feld.hoehe) {
+            for (x in 1..<feld.breite - 1) {
+                val spalte = umgebung_checken(x, y, computer)
+                if (spalte != null) {
+                    this.einwerfen(spalte, computer);
+                    return;
                 }
             }
         }
+
+        this.randomZug(computer)
     }
 
-    //erste koordinate ist zeile, die zweite ist spalte
-    private fun umgebung_checken(i: Int, j: Int, computer: Spieler): Boolean {
+    private fun maske_testen(x: Int, y: Int, diagonal: Int, computer: Spieler): Int? {
+        // Mitte frei testen
+        var drunterFrei = y + 1 >= this.feld.hoehe || this.feld.matrix[y + 1][x] != null
+        if (drunterFrei &&
+            this.feld.matrix[y - diagonal][x - 1] != null &&
+            this.feld.matrix[y - diagonal][x - 1] != computer &&
+            this.feld.matrix[y - diagonal][x - 1] == this.feld.matrix[y + diagonal][x + 1]
+        ) {
+            return x
+        }
+
+        // Links frei testen
+        drunterFrei = y - diagonal + 1 >= this.feld.hoehe || this.feld.matrix[y - diagonal + 1][x - 1] != null
+        if (drunterFrei &&
+            this.feld.matrix[y][x] != null &&
+            this.feld.matrix[y][x] != computer &&
+            this.feld.matrix[y][x] == this.feld.matrix[y + diagonal][x + 1]
+        ) {
+            return x - 1
+        }
+
+        return null
+    }
+
+    private fun umgebung_checken(x: Int, y: Int, computer: Spieler): Int? {
+        var spalte = this.maske_testen(x, y, 0, computer)
+        if (spalte != null) {
+            return spalte
+        }
+
+        if (y != this.feld.hoehe - 1) {
+            spalte = this.maske_testen(x, y, 1, computer)
+            if (spalte != null) {
+                return spalte
+            }
+
+
+            spalte = this.maske_testen(x, y, -1, computer)
+            if (spalte != null) {
+                return spalte
+            }
+        }
+
+        /*
         //gibt true oder false zurpück, je nachdem, ob ein match gefunden wurde für einen strategisch gute zug
-        val aktuellesFeld = this.feld.matrix[i][j]
+        val aktuellesFeld = this.feld.matrix[y][x]
         var x_in_reihe = 0
         //nach  unten schauen
         if (aktuellesFeld != null) {
-            if (this.feld.matrix[i + 1][j] != null && this.feld.matrix[i + 1][j] != computer) {
+            if (this.feld.matrix[y + 1][x] != null && this.feld.matrix[y + 1][x] != computer) {
                 x_in_reihe += 1
-                umgebung_checken(i + 1, j, computer)
+                umgebung_checken(y + 1, x, computer)
             }
 
             if (x_in_reihe == 2) {
 
-                if (this.kannEinwerfen(j) == true) {
-                    this.einwerfen(j, computer);
+                if (this.kannEinwerfen(x) == true) {
+                    this.einwerfen(x, computer);
                     return true;
                 }
             }
@@ -205,37 +249,38 @@ class VierGewinnt(
 
         if (aktuellesFeld != null) {
             //speichern das startfeld ein für waagerechtes checken
-            val xGefunden = i
-            val yGefunden = j;
-            if (this.feld.matrix[i][j + 1] != null && this.feld.matrix[i][j + 1] != computer) {
+            val xGefunden = y
+            val yGefunden = x;
+            if (this.feld.matrix[y][x + 1] != null && this.feld.matrix[y][x + 1] != computer) {
                 x_in_reihe += 1
-                umgebung_checken(i, j + 1, computer)
+                umgebung_checken(y, x + 1, computer)
             }
             if (x_in_reihe == 2) {
 
-                if (this.kannEinwerfen(j) == true) {
-                    this.einwerfen(j, computer);
+                if (this.kannEinwerfen(x) == true) {
+                    this.einwerfen(x, computer);
                     return true;
                 }
             }
         }
+
+         */
+
+        return null
     }
 
     fun randomZug(computer: Spieler) {
-        val rnds = (0..feld.breite - 1).random()
-
-        if (this.kannEinwerfen(rnds) == true) {
-            this.einwerfen(rnds, computer);
-        } else {
-            randomZug(computer)
+        while (true) {
+            val rnds = (0..<feld.breite).random()
+            if (this.einwerfen(rnds, computer)) {
+                break
+            }
         }
     }
 
     fun defaultZug(spieler: Spieler) {
         this.einwerfen(0, spieler)
-
     }
-
 }
 
 

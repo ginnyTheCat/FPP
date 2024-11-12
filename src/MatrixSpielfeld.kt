@@ -11,7 +11,7 @@ class MatrixSpielfeld(hoehe: Int, breite: Int) : Spielfeld(hoehe, breite) {
         for (i in 0..<hoehe) {
             print("${i + 1} |")
             for (j in 0..<breite) {
-                print(matrix[i][j]?.name ?: " ");
+                print(matrix[i][j] ?: " ");
                 print("|");
             }
             println();
