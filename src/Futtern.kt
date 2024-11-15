@@ -97,6 +97,7 @@ class Futtern(
         val voll = feld.matrix[1][0] != null && feld.matrix[0][1] != null
         if (voll) {
             this.setzen(0, 0, computer)
+            return
         }
 
         while (true) {
