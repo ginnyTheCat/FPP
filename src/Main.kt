@@ -1,4 +1,6 @@
 fun main() {
+    Server().start()
+
     val spielIndex = intInput("Spiel auswählen (1 = Vier gewinnt, 2 = Futtern)", 1..2)
 
     val breite = intInput("Bitte Breite eingeben", 1..50)
