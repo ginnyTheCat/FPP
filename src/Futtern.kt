@@ -28,28 +28,13 @@ class Futtern(
 
     private fun spielzug_spieler(selbst: Spieler) {
         while (true) {
-            var x: Int
-            while (true) {
-                print("In Spalte setzen: ")
-                x = readln().toInt()
-                if (0 < x && x <= this.feld.breite) {
-                    break
-                }
-            }
+            val x = intInput("In Spalte setzen", 1..this.feld.breite)
+            val y = intInput("In Zeile setzen", 1..this.feld.hoehe)
 
-            var y: Int
-            while (true) {
-                print("In Zeile setzen: ")
-                y = readln().toInt()
-                if (0 < y && y <= this.feld.hoehe) {
-                    break;
-                }
-            }
-
-            if (this.setzen(x - 1, y - 1, selbst)) {
-                break
-            } else {
+            if (!this.setzen(x - 1, y - 1, selbst)) {
                 println("Feld schon belegt, anderes Feld wählen")
+            } else {
+                break
             }
         }
     }

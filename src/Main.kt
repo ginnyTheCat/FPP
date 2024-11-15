@@ -1,22 +1,19 @@
 fun main() {
-    var spielIndex: Int?
-    while (true) {
-        print("Spiel auswählen (1 = Vier gewinnt, 2 = Futtern): ")
-        spielIndex = readln().toIntOrNull()
-        if (spielIndex == 1 || spielIndex == 2) {
-            break
-        }
+    val spielIndex = intInput("Spiel auswählen (1 = Vier gewinnt, 2 = Futtern)", 1..2)
+
+    val breite = intInput("Bitte Breite eingeben", 1..50)
+    val hoehe = intInput("Bitte Höhe eingeben", 1..50)
+
+    val gegner = intInput("Gegner auswählen (1 = Mensch, 2 = Computer)", 1..2)
+    val gegnerType = if (gegner == 1) {
+        SpielerArt.MENSCH
+    } else {
+        SpielerArt.COMPUTER
     }
-
-    print("Bitte Höhe eingeben: ")
-    val hoehe = readln().toInt()
-
-    print("Bitte Breite eingeben: ")
-    val breite = readln().toInt()
 
     val spieler = arrayOf(
         Spieler("X", SpielerArt.MENSCH),
-        Spieler("O", SpielerArt.COMPUTER),
+        Spieler("O", gegnerType),
     )
 
     val spiel: Spiel = if (spielIndex == 1) {

@@ -44,24 +44,6 @@ class VierGewinnt(
         return false
     }
 
-    /*
-    //erste koordinate ist zeile, die zweite ist spalte
-    private fun kannWaagerecht(x: Int, y: Int, computer: Spieler): Boolean {
-        //wenn man nicht links anbauen kann...
-        if (x == 0 || (y > 0 && feld.matrix[x][y - 1] != null)) {
-            //kann man rechts anbauen?
-            if (x == feld.breite - 1) {
-                return false
-            } else {
-                //rechts checken
-                if (feld.matrix[x][y] == null && feld.matrix[x][y - 1] != null) {
-                }
-            }
-
-        }
-    }
-     */
-
     override fun durchgang(): Ausgang? {
         for (s in spieler) {
             val ausgang = spielzug()
@@ -144,17 +126,12 @@ class VierGewinnt(
 
     private fun spielzug_spieler(selbst: Spieler) {
         while (true) {
-            print("In Spalte setzen: ")
-            val x = readln().toInt()
+            val x = intInput("In Spalte setzen", 1..this.feld.breite)
 
-            if (x <= 0) {
-                println("Höheren Spaltenindex wählen")
-            } else if (x > this.feld.matrix[0].size) {
-                println("Niedrigeren Spaltenindex wählen")
-            } else if (einwerfen(x - 1, selbst)) {
-                break
+            if (!einwerfen(x - 1, selbst)) {
+                println("Spalte schon voll, andere Spalte wählen.")
             } else {
-                println("Spalte schon voll, andere Spalte wählen")
+                break
             }
         }
     }
@@ -178,6 +155,7 @@ class VierGewinnt(
         // Mitte frei testen
         var drunterFrei = y + 1 >= this.feld.hoehe || this.feld.matrix[y + 1][x] != null
         if (drunterFrei &&
+            this.feld.matrix[y][x] == null &&
             this.feld.matrix[y - diagonal][x - 1] != null &&
             this.feld.matrix[y - diagonal][x - 1] != computer &&
             this.feld.matrix[y - diagonal][x - 1] == this.feld.matrix[y + diagonal][x + 1]
@@ -188,6 +166,7 @@ class VierGewinnt(
         // Links frei testen
         drunterFrei = y - diagonal + 1 >= this.feld.hoehe || this.feld.matrix[y - diagonal + 1][x - 1] != null
         if (drunterFrei &&
+            this.feld.matrix[y - diagonal][x - 1] == null &&
             this.feld.matrix[y][x] != null &&
             this.feld.matrix[y][x] != computer &&
             this.feld.matrix[y][x] == this.feld.matrix[y + diagonal][x + 1]
@@ -199,72 +178,34 @@ class VierGewinnt(
     }
 
     private fun umgebung_checken(x: Int, y: Int, computer: Spieler): Int? {
+        // Nebeneinander verhindern
         var spalte = this.maske_testen(x, y, 0, computer)
         if (spalte != null) {
             return spalte
         }
 
         if (y != this.feld.hoehe - 1) {
+            // Diagonal \ verhindern
             spalte = this.maske_testen(x, y, 1, computer)
             if (spalte != null) {
                 return spalte
             }
 
-
+            // Diagonal / verhindern
             spalte = this.maske_testen(x, y, -1, computer)
             if (spalte != null) {
                 return spalte
             }
-        }
 
-        /*
-        //gibt true oder false zurpück, je nachdem, ob ein match gefunden wurde für einen strategisch gute zug
-        val aktuellesFeld = this.feld.matrix[y][x]
-        var x_in_reihe = 0
-        //nach  unten schauen
-        if (aktuellesFeld != null) {
-            if (this.feld.matrix[y + 1][x] != null && this.feld.matrix[y + 1][x] != computer) {
-                x_in_reihe += 1
-                umgebung_checken(y + 1, x, computer)
-            }
-
-            if (x_in_reihe == 2) {
-
-                if (this.kannEinwerfen(x) == true) {
-                    this.einwerfen(x, computer);
-                    return true;
-                }
-            }
-
-            //liste hier mit tupeln aus i und j füllen, damit man darauf zugreifen kann
-        }
-
-        //waagerechte linien checken
-
-
-        //zuerst rausfinden, ob es diese linien gibt,
-        // und dann, ob sie verhinderbar sind durch draufstapeln.
-        // wenn draufstapeln nicht möglich, weitersuchen.
-        //hier speichern, wo der anfang der reihe ist, diesen dann übergeben
-
-        if (aktuellesFeld != null) {
-            //speichern das startfeld ein für waagerechtes checken
-            val xGefunden = y
-            val yGefunden = x;
-            if (this.feld.matrix[y][x + 1] != null && this.feld.matrix[y][x + 1] != computer) {
-                x_in_reihe += 1
-                umgebung_checken(y, x + 1, computer)
-            }
-            if (x_in_reihe == 2) {
-
-                if (this.kannEinwerfen(x) == true) {
-                    this.einwerfen(x, computer);
-                    return true;
-                }
+            // Übereinander verhindern
+            if (this.feld.matrix[y - 1][x] == null &&
+                this.feld.matrix[y][x] != null &&
+                this.feld.matrix[y][x] != computer &&
+                this.feld.matrix[y][x] == this.feld.matrix[y + 1][x]
+            ) {
+                return x
             }
         }
-
-         */
 
         return null
     }
@@ -276,10 +217,6 @@ class VierGewinnt(
                 break
             }
         }
-    }
-
-    fun defaultZug(spieler: Spieler) {
-        this.einwerfen(0, spieler)
     }
 }
 
