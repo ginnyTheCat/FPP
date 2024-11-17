@@ -5,7 +5,7 @@ class Futtern(
     override val feld: MatrixSpielfeld = MatrixSpielfeld(hoehe, breite)
 ) : Spiel(spieler, feld) {
 
-    var amZugIndex = 0
+    private var amZugIndex = 0
 
     override fun spielzug(): Ausgang? {
         println()

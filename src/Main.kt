@@ -1,5 +1,5 @@
 fun main() {
-    Server().start()
+    Server(null, null).start()
 
     val spielIndex = intInput("Spiel auswählen (1 = Vier gewinnt, 2 = Futtern)", 1..2)
 
