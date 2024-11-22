@@ -10,7 +10,7 @@ import kotlin.concurrent.thread
 data class Nutzer(
     val email: String,
     val name: String,
-    val passwort: String,
+    var passwort: String,
 )
 
 class Server(
@@ -19,22 +19,26 @@ class Server(
 ) {
     private var serverSocket: ServerSocket? = null
     private var users: HashMap<String, Nutzer> = HashMap()
-    private var pool: HashSet<ServerHandler> = HashSet()
+    private var pool: HashSet<ServerConnection> = HashSet()
 
     fun start() {
         val socket = ServerSocket(9876)
         println("Hört auf Port :${socket.localPort}")
         this.serverSocket = socket
-        thread {
-            while (!socket.isClosed) {
-                val handler = ServerHandler(this, socket.accept())
-                this.pool.add(handler)
-                println("Neuer Client verbunden")
-                thread {
-                    handler.handle()
-                    this.pool.remove(handler)
-                    this.sendeOnline()
-                }
+        thread { this.hintergrund(socket) }
+    }
+
+    private fun hintergrund(socket: ServerSocket) {
+        while (!socket.isClosed) {
+            val con = socket.accept()
+            val handler = ServerConnection(this, con)
+
+            this.pool.add(handler)
+            println("Client ${con.remoteSocketAddress} verbunden")
+            thread {
+                handler.handle()
+                this.pool.remove(handler)
+                println("Client ${con.remoteSocketAddress} getrennt")
             }
         }
     }
@@ -49,7 +53,7 @@ class Server(
 
     fun registrieren(email: String, name: String) {
         val alphabet = ('A'..'Z') + ('a'..'z') + ('0'..'9')
-        val passwort = String(CharArray(10) { alphabet.random() })
+        val passwort = String(CharArray(12) { alphabet.random() })
 
         if (this.uniUser != null && this.uniPassword != null) {
             val mail = SimpleEmail()
@@ -73,22 +77,29 @@ class Server(
         this.users[email] = nutzer
     }
 
-    fun anmelden(handler: ServerHandler, email: String, passwort: String) {
+    fun anmelden(con: ServerConnection, email: String, passwort: String) {
         val nutzer = this.users[email]
         if (nutzer?.passwort == passwort) {
-            handler.nutzer = nutzer
-            this.sendeOnline()
+            con.nutzer = nutzer
+            this.anAlleSenden(Nachricht.Verbinden(nutzer.name))
+            con.sende(Nachricht.Success("an"))
+        } else {
+            con.sende(Nachricht.Fail("an"))
         }
     }
 
-    private fun sendeOnline() {
-        val names = this.pool.mapNotNull { it.nutzer }.map { it.name }
-        val msg = Nachricht.NowOnline(*names.toTypedArray())
-        this.anAlleSenden(msg)
+    fun passwortAendern(con: ServerConnection, alt: String, neu: String) {
+        val nutzer = con.nutzer
+        if (nutzer?.passwort == alt) {
+            nutzer.passwort = neu
+            con.sende(Nachricht.Success("chpwd"))
+        } else {
+            con.sende(Nachricht.Fail("chpwd"))
+        }
     }
 }
 
-class ServerHandler(private val server: Server, private val socket: Socket) {
+class ServerConnection(private val server: Server, private val socket: Socket) {
     private val reader: Scanner = Scanner(socket.getInputStream())
     private val writer: OutputStream = socket.getOutputStream()
 
@@ -109,14 +120,20 @@ class ServerHandler(private val server: Server, private val socket: Socket) {
 
             this.handleNachricht(Nachricht.parse(line))
         }
+
+        val nutzer = this.nutzer
+        if (nutzer != null) {
+            this.server.anAlleSenden(Nachricht.Trennen(nutzer.name))
+        }
     }
 
-    fun handleNachricht(msg: Nachricht) {
+    private fun handleNachricht(msg: Nachricht) {
         println("Nachricht $msg erhalten")
 
         when (msg) {
             is Nachricht.Registrieren -> this.server.registrieren(msg.email, msg.name)
             is Nachricht.Anmelden -> this.server.anmelden(this, msg.email, msg.passwort)
+            is Nachricht.PasswortAendern -> this.server.passwortAendern(this, msg.alt, msg.neu)
             is Nachricht.Text -> this.server.anAlleSenden(Nachricht.Text(nutzer?.name, msg.content))
             else -> {}
         }

@@ -1,6 +1,12 @@
-fun main() {
-    Server(null, null).start()
+fun main(args: Array<String>) {
 
+    if (args.isNotEmpty()) {
+        Client("localhost", 9876).start()
+    } else {
+        Server(null, null).start()
+    }
+
+    /*
     val spielIndex = intInput("Spiel auswählen (1 = Vier gewinnt, 2 = Futtern)", 1..2)
 
     val breite = intInput("Bitte Breite eingeben", 1..50)
@@ -33,4 +39,5 @@ fun main() {
             break
         }
     }
+     */
 }
