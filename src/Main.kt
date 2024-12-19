@@ -1,10 +1,35 @@
-fun main(args: Array<String>) {
+import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.material.Button
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
 
+@Composable
+@Preview
+fun App() {
+    var counter by remember { mutableStateOf(0) }
+
+    MaterialTheme {
+        Button(onClick = { counter++ }) {
+            Text("${counter}x FPP!")
+        }
+    }
+}
+
+fun main() = application {
+    Window(onCloseRequest = ::exitApplication) {
+        App()
+    }
+
+    /*
     if (args.isNotEmpty()) {
         Client("localhost", 9876).start()
     } else {
         Server(null, null).start()
     }
+    */
 
     /*
     val spielIndex = intInput("Spiel auswählen (1 = Vier gewinnt, 2 = Futtern)", 1..2)

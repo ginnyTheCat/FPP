@@ -1,14 +1,18 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
 plugins {
-    application
-    kotlin("jvm") version "2.0.21"
+    kotlin("jvm")
+    id("org.jetbrains.compose")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
-application {
-    mainClass = "MainKt"
-}
+group = "cat.ginny"
+version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    google()
 }
 
 sourceSets.main {
@@ -17,8 +21,17 @@ sourceSets.main {
 
 dependencies {
     implementation("org.apache.commons:commons-email2-javax:2.0.0-M1")
+    implementation(compose.desktop.currentOs)
 }
 
-tasks.getByName("run", JavaExec::class) {
-    standardInput = System.`in`
+compose.desktop {
+    application {
+        mainClass = "MainKt"
+
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            packageName = "FPP"
+            packageVersion = "1.0.0"
+        }
+    }
 }
