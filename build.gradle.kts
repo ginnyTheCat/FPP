@@ -22,6 +22,8 @@ sourceSets.main {
 dependencies {
     implementation("org.apache.commons:commons-email2-javax:2.0.0-M1")
     implementation(compose.desktop.currentOs)
+    implementation(compose.material3)
+    implementation(compose.materialIconsExtended)
 }
 
 compose.desktop {

@@ -1,3 +1,19 @@
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import org.apache.commons.mail2.javax.SimpleEmail
 import java.io.OutputStream
 import java.net.ServerSocket
@@ -18,8 +34,8 @@ class Server(
     private val uniPassword: String?
 ) {
     private var serverSocket: ServerSocket? = null
-    private var users: HashMap<String, Nutzer> = HashMap()
-    private var pool: HashSet<ServerConnection> = HashSet()
+    private var users = mutableStateMapOf<String, Nutzer>()
+    private var pool = mutableStateMapOf<ServerConnection, Unit>()
 
     fun start() {
         val socket = ServerSocket(9876)
@@ -33,7 +49,7 @@ class Server(
             val con = socket.accept()
             val handler = ServerConnection(this, con)
 
-            this.pool.add(handler)
+            this.pool[handler] = Unit
             println("Client ${con.remoteSocketAddress} verbunden")
             thread {
                 handler.handle()
@@ -47,8 +63,35 @@ class Server(
         this.serverSocket?.close()
     }
 
+    @Composable
+    fun ui() {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(Modifier.fillMaxSize().weight(1f)) {
+                Text("Momentan online", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
+                LazyColumn {
+                    items(pool.keys.toList()) {
+                        it.ui()
+                    }
+                }
+            }
+            Card(Modifier.fillMaxSize().weight(1f)) {
+                Text("Registrierte Benutzer", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
+                LazyColumn {
+                    items(users.values.toList()) {
+                        ListItem(
+                            leadingContent = { Icon(Icons.Default.AccountCircle, null) },
+                            headlineContent = { Text(it.name) },
+                            supportingContent = { Text(it.email) },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun anAlleSenden(msg: Nachricht) {
-        this.pool.forEach { it.sende(msg) }
+        this.pool.keys.forEach { it.sende(msg) }
     }
 
     fun registrieren(email: String, name: String) {
@@ -80,7 +123,7 @@ class Server(
     fun anmelden(con: ServerConnection, email: String, passwort: String) {
         val nutzer = this.users[email]
         if (nutzer?.passwort == passwort) {
-            con.nutzer = nutzer
+            con.nutzer.value = nutzer
             this.anAlleSenden(Nachricht.Verbinden(nutzer.name))
             con.sende(Nachricht.Success("an"))
         } else {
@@ -89,7 +132,7 @@ class Server(
     }
 
     fun passwortAendern(con: ServerConnection, alt: String, neu: String) {
-        val nutzer = con.nutzer
+        val nutzer = con.nutzer.value
         if (nutzer?.passwort == alt) {
             nutzer.passwort = neu
             con.sende(Nachricht.Success("chpwd"))
@@ -103,7 +146,7 @@ class ServerConnection(private val server: Server, private val socket: Socket) {
     private val reader: Scanner = Scanner(socket.getInputStream())
     private val writer: OutputStream = socket.getOutputStream()
 
-    var nutzer: Nutzer? = null
+    val nutzer = mutableStateOf<Nutzer?>(null)
 
     fun sende(msg: Nachricht) {
         writer.write("${msg.wire}\n".toByteArray(StandardCharsets.UTF_8))
@@ -121,7 +164,7 @@ class ServerConnection(private val server: Server, private val socket: Socket) {
             this.handleNachricht(Nachricht.parse(line))
         }
 
-        val nutzer = this.nutzer
+        val nutzer = this.nutzer.value
         if (nutzer != null) {
             this.server.anAlleSenden(Nachricht.Trennen(nutzer.name))
         }
@@ -134,8 +177,18 @@ class ServerConnection(private val server: Server, private val socket: Socket) {
             is Nachricht.Registrieren -> this.server.registrieren(msg.email, msg.name)
             is Nachricht.Anmelden -> this.server.anmelden(this, msg.email, msg.passwort)
             is Nachricht.PasswortAendern -> this.server.passwortAendern(this, msg.alt, msg.neu)
-            is Nachricht.Text -> this.server.anAlleSenden(Nachricht.Text(nutzer?.name, msg.content))
+            is Nachricht.Text -> this.server.anAlleSenden(Nachricht.Text(nutzer.value?.name, msg.content))
             else -> {}
         }
+    }
+
+    @Composable
+    fun ui() {
+        ListItem(
+            leadingContent = { Icon(Icons.Default.Person, null) },
+            headlineContent = { Text(socket.remoteSocketAddress.toString()) },
+            supportingContent = nutzer.value?.let { { Text("${it.name} - ${it.email}") } },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        )
     }
 }
