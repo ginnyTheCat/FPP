@@ -10,9 +10,11 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import java.io.OutputStream
 import java.net.Socket
@@ -61,29 +63,46 @@ class Client(
         var name by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextField(email, { email = it }, label = { Text("E-Mail-Adresse") })
+        Box(Modifier.fillMaxSize()) {
+            Column(Modifier.width(512.dp).align(Alignment.Center), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    email,
+                    { email = it },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("E-Mail-Adresse") },
+                )
 
-            if (anmelden) {
-                TextField(password, { password = it }, label = { Text("Passwort") })
+                if (anmelden) {
+                    OutlinedTextField(
+                        password, { password = it },
+                        Modifier.fillMaxWidth(),
+                        visualTransformation = PasswordVisualTransformation(),
+                        label = { Text("Passwort") },
+                    )
 
-                Row {
-                    TextButton({ anmelden = false }) { Text("Registrieren") }
-                    Button({
-                        sende(Nachricht.Anmelden(email, password))
-                    }) { Text("Anmelden") }
-                }
-            } else {
-                TextField(name, { name = it }, label = { Text("Name") })
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        TextButton({ anmelden = false }) { Text("Registrieren") }
+                        Button({
+                            sende(Nachricht.Anmelden(email, password))
+                        }) { Text("Anmelden") }
+                    }
+                } else {
+                    OutlinedTextField(
+                        name,
+                        { name = it },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("Name") },
+                    )
 
-                Row {
-                    TextButton({ anmelden = true }) { Text("Anmelden") }
-                    Button({
-                        sende(Nachricht.Registrieren(email, name))
-                        password = ""
-                        anmelden = true
-                        snackbar("Sie sollten ihr Passwort nun per E-Mail zugeschickt bekommen.")
-                    }) { Text("Registrieren") }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        TextButton({ anmelden = true }) { Text("Anmelden") }
+                        Button({
+                            sende(Nachricht.Registrieren(email, name))
+                            password = ""
+                            anmelden = true
+                            snackbar("Sie sollten ihr Passwort nun per E-Mail zugeschickt bekommen.")
+                        }) { Text("Registrieren") }
+                    }
                 }
             }
         }

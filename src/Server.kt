@@ -1,7 +1,4 @@
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -9,6 +6,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -36,10 +34,11 @@ class Server(
     private var serverSocket: ServerSocket? = null
     private var users = mutableStateMapOf<String, Nutzer>()
     private var pool = mutableStateMapOf<ServerConnection, Unit>()
+    private var log = mutableStateListOf<String>()
 
     fun start() {
         val socket = ServerSocket(9876)
-        println("Hört auf Port :${socket.localPort}")
+        log.add("Hört auf Port :${socket.localPort}")
         this.serverSocket = socket
         thread { this.hintergrund(socket) }
     }
@@ -50,11 +49,11 @@ class Server(
             val handler = ServerConnection(this, con)
 
             this.pool[handler] = Unit
-            println("Client ${con.remoteSocketAddress} verbunden")
+            log.add("Client ${con.remoteSocketAddress} verbunden")
             thread {
                 handler.handle()
                 this.pool.remove(handler)
-                println("Client ${con.remoteSocketAddress} getrennt")
+                log.add("Client ${con.remoteSocketAddress} getrennt")
             }
         }
     }
@@ -65,25 +64,35 @@ class Server(
 
     @Composable
     fun ui() {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Card(Modifier.fillMaxSize().weight(1f)) {
-                Text("Momentan online", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
-                LazyColumn {
-                    items(pool.keys.toList()) {
-                        it.ui()
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(Modifier.fillMaxSize().weight(1f)) {
+                    Text("Momentan online", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
+                    LazyColumn {
+                        items(pool.keys.toList()) {
+                            it.ui()
+                        }
+                    }
+                }
+                Card(Modifier.fillMaxSize().weight(1f)) {
+                    Text("Registrierte Benutzer", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
+                    LazyColumn {
+                        items(users.values.toList()) {
+                            ListItem(
+                                leadingContent = { Icon(Icons.Default.AccountCircle, null) },
+                                headlineContent = { Text(it.name) },
+                                supportingContent = { Text(it.email) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            )
+                        }
                     }
                 }
             }
             Card(Modifier.fillMaxSize().weight(1f)) {
-                Text("Registrierte Benutzer", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
-                LazyColumn {
-                    items(users.values.toList()) {
-                        ListItem(
-                            leadingContent = { Icon(Icons.Default.AccountCircle, null) },
-                            headlineContent = { Text(it.name) },
-                            supportingContent = { Text(it.email) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        )
+                Text("Logbuch", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
+                LazyColumn() {
+                    items(log) {
+                        Text(it, Modifier.padding(horizontal = 16.dp))
                     }
                 }
             }
@@ -112,12 +121,16 @@ class Server(
             mail.subject = "FPP Registrierung - $name"
             mail.setMsg("Ihr Passwort lautet: $passwort")
             mail.send()
+
+            log.add("E-Mail mit Password versendet an $email")
         } else {
-            println("register $email with password $passwort")
+            log.add("E-Mail-Versand ist nicht aktiviert: $email hat Passwort $passwort")
         }
 
         val nutzer = Nutzer(email, name, passwort)
         this.users[email] = nutzer
+
+        log.add("Nutzer $email mit Name \"$name\" registriert")
     }
 
     fun anmelden(con: ServerConnection, email: String, passwort: String) {
@@ -126,8 +139,10 @@ class Server(
             con.nutzer.value = nutzer
             this.anAlleSenden(Nachricht.Verbinden(nutzer.name))
             con.sende(Nachricht.Success("an"))
+            log.add("Erfolgreiche Anmeldung von $email")
         } else {
             con.sende(Nachricht.Fail("an"))
+            log.add("Anmeldeversuch von $email")
         }
     }
 
@@ -136,9 +151,16 @@ class Server(
         if (nutzer?.passwort == alt) {
             nutzer.passwort = neu
             con.sende(Nachricht.Success("chpwd"))
+            log.add("Erfolgreiche Passwortänderung von ${nutzer.email}")
         } else {
             con.sende(Nachricht.Fail("chpwd"))
+            log.add("Fehlgeschlagene Passwortänderung von ${nutzer?.email}")
         }
+    }
+
+    fun message(nutzer: Nutzer?, content: String) {
+        log.add("Nachricht von ${nutzer?.name}: $content")
+        this.anAlleSenden(Nachricht.Text(nutzer?.name, content))
     }
 }
 
@@ -177,7 +199,7 @@ class ServerConnection(private val server: Server, private val socket: Socket) {
             is Nachricht.Registrieren -> this.server.registrieren(msg.email, msg.name)
             is Nachricht.Anmelden -> this.server.anmelden(this, msg.email, msg.passwort)
             is Nachricht.PasswortAendern -> this.server.passwortAendern(this, msg.alt, msg.neu)
-            is Nachricht.Text -> this.server.anAlleSenden(Nachricht.Text(nutzer.value?.name, msg.content))
+            is Nachricht.Text -> this.server.message(this.nutzer.value, msg.content)
             else -> {}
         }
     }
