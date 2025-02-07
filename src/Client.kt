@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import java.io.OutputStream
 import java.net.Socket
 import java.nio.charset.StandardCharsets
@@ -25,15 +27,20 @@ import kotlin.concurrent.thread
 class Client(
     private val adresse: String,
     private val port: Int,
-    private val snackbar: (String) -> Unit,
+    private val snackbarAction: (String, String?, (() -> Unit)?) -> Unit,
 ) {
     private var socket: Socket? = null
     private var ausgang: OutputStream? = null
 
+    private fun snackbar(msg: String, actionLabel: String? = null, onClick: (() -> Unit)? = null) =
+        snackbarAction(msg, actionLabel, onClick)
+
+    private val ende = mutableStateOf<Ausgang?>(null)
     private val chatting = mutableStateOf(false)
+    private var spiel = mutableStateOf<Spiel?>(null)
     private val nachrichten = mutableStateListOf<Nachricht>()
 
-    private val online = mutableStateMapOf<String, Unit>()
+    private val online = mutableStateMapOf<String, Boolean>()
 
     fun start() {
         val socket = Socket(adresse, port)
@@ -48,10 +55,34 @@ class Client(
 
     @Composable
     fun ui() {
-        if (chatting.value) {
+        if (spiel.value != null) {
+            spielDialog()
+        } else if (chatting.value) {
             chatDialog()
         } else {
             anmeldeDialog()
+        }
+    }
+
+    @Composable
+    private fun spielDialog() {
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.align(Alignment.Center)) {
+                spiel.value!!.ui { x, y ->
+                    sende(Nachricht.Setzen(null, x, y))
+                }
+            }
+        }
+
+        if (ende.value != null) {
+            Dialog(onDismissRequest = {
+                spiel.value = null
+                ende.value = null
+            }) {
+                Card {
+                    Text("${ende.value}", Modifier.padding(64.dp))
+                }
+            }
         }
     }
 
@@ -108,9 +139,13 @@ class Client(
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun chatDialog() {
+        var changePassword by remember { mutableStateOf(false) }
+
         var input by remember { mutableStateOf("") }
+        var invite by remember { mutableStateOf<String?>(null) }
 
         fun send() {
             if (input.isNotEmpty()) {
@@ -164,48 +199,114 @@ class Client(
                     )
                 )
             }
-            Card(Modifier.fillMaxHeight().weight(0.5f)) {
-                Text(
-                    "Momentan Online",
-                    Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                LazyColumn {
-                    items(online.keys.toList()) {
-                        ListItem(
-                            leadingContent = { Icon(Icons.Default.Person, null) },
-                            headlineContent = { Text(it) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button({ changePassword = true }, Modifier.fillMaxWidth().weight(1f)) {
+                        Text("Passwort ändern")
+                    }
+                    Button({ invite = "" }, Modifier.fillMaxWidth().weight(1f)) {
+                        Text("Bot herausfordern")
+                    }
+                }
+                Card(Modifier.fillMaxHeight()) {
+                    Text(
+                        "Momentan Online",
+                        Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    LazyColumn {
+                        items(online.toList()) { (name, self) ->
+                            ListItem(
+                                leadingContent = { Icon(Icons.Default.Person, null) },
+                                headlineContent = { Text(name) },
+                                trailingContent = if (self) ({ }) else ({
+                                    Button({
+                                        invite = name
+                                    }) { Text("Einladen") }
+                                }),
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            )
+                        }
                     }
                 }
             }
         }
 
-        /*
-                "/passwort" -> {
-                    println("Passwort ändern: ")
-
-                    while (true) {
-                        print("Geben sie zuerst ihr aktuelles/altes Passwort ein: ")
-                        val alt = readln()
-
-                        print("Geben sie nun ihr neues Passwort ein: ")
-                        val neu = readln()
-
-                        print("Geben sie ihr neues Passwort nochmal ein: ")
-                        val neu2 = readln()
-
-                        if (neu == neu2) {
-                            this.sende(Nachricht.PasswortAendern(alt, neu))
-                            break;
-                        } else {
-                            println()
-                            println("Sie haben sich beim neuen Passwort vertippt. Bitte versuchen sie es noch einmal.")
+        var width by remember { mutableIntStateOf(7) }
+        var height by remember { mutableIntStateOf(7) }
+        var game by remember { mutableStateOf(Game.VierGewinnt) }
+        if (invite != null) {
+            Dialog(onDismissRequest = { invite = null }) {
+                Card {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            OutlinedTextField(
+                                width.toString(), { width = it.toIntOrNull() ?: width },
+                                Modifier.fillMaxWidth().weight(1f),
+                                label = { Text("Breite") },
+                            )
+                            Icon(Icons.Default.Close, null)
+                            OutlinedTextField(
+                                height.toString(), { height = it.toIntOrNull() ?: height },
+                                Modifier.fillMaxWidth().weight(1f),
+                                label = { Text("Höhe") },
+                            )
                         }
+
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            Game.entries.forEachIndexed { i, entry ->
+                                SegmentedButton(
+                                    shape = SegmentedButtonDefaults.itemShape(i, Game.entries.size),
+                                    selected = game == entry,
+                                    onClick = { game = entry },
+                                ) { Text(entry.plain) }
+                            }
+                        }
+
+                        Button({
+                            if (invite == "") {
+                                sende(Nachricht.Beitreten("", game, width, height))
+                            } else {
+                                sende(Nachricht.Einladen(invite!!, game, width, height))
+                            }
+                            invite = null
+                        }) { Text(if (invite == "") "Bot herausfordern" else "Einladen") }
                     }
                 }
-         */
+            }
+        }
+
+        var oldPassword by remember { mutableStateOf("") }
+        var newPassword by remember { mutableStateOf("") }
+        if (changePassword) {
+            Dialog(onDismissRequest = { changePassword = false }) {
+                Card {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            oldPassword, { oldPassword = it },
+                            Modifier.fillMaxWidth(),
+                            visualTransformation = PasswordVisualTransformation(),
+                            label = { Text("Altes Passwort") },
+                        )
+
+                        OutlinedTextField(
+                            newPassword, { newPassword = it },
+                            Modifier.fillMaxWidth(),
+                            visualTransformation = PasswordVisualTransformation(),
+                            label = { Text("Neues Passwort") },
+                        )
+
+                        Button({
+                            sende(Nachricht.PasswortAendern(oldPassword, newPassword))
+                            changePassword = false
+                        }) { Text("Passwort ändern") }
+                    }
+                }
+            }
+        }
     }
 
     private fun sende(msg: Nachricht) {
@@ -223,7 +324,30 @@ class Client(
 
     private fun handleNachricht(msg: Nachricht) {
         when (msg) {
-            is Nachricht.Verbinden -> this.online[msg.name] = Unit
+            is Nachricht.Einladen -> {
+                snackbar(
+                    "${msg.name} hat dich zu ${msg.width}x${msg.height} ${msg.game.plain} eingeladen!",
+                    "Beitreten"
+                ) { sende(Nachricht.Beitreten(msg.name, msg.game, msg.width, msg.height)) }
+                return
+            }
+
+            is Nachricht.Beitreten -> {
+                this.spiel.value = msg.game.create(msg.width, msg.height, arrayOf())
+                return
+            }
+
+            is Nachricht.Setzen -> {
+                this.spiel.value?.feld?.set(msg.x, msg.y, Spieler(msg.name!!, SpielerArt.COMPUTER))
+                return
+            }
+
+            is Nachricht.End -> {
+                this.ende.value = msg.ausgang
+                return
+            }
+
+            is Nachricht.Verbinden -> this.online[msg.name] = msg.self
             is Nachricht.Trennen -> this.online.remove(msg.name)
 
             is Nachricht.Success -> {

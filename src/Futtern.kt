@@ -1,42 +1,40 @@
+import androidx.compose.runtime.Composable
+
 class Futtern(
     hoehe: Int,
     breite: Int,
     spieler: Array<Spieler>,
-    override val feld: MatrixSpielfeld = MatrixSpielfeld(hoehe, breite)
+    onSet: (x: Int, y: Int, spieler: Spieler) -> Unit,
+    override val feld: MatrixSpielfeld = MatrixSpielfeld(hoehe, breite, onSet)
 ) : Spiel(spieler, feld) {
 
     private var amZugIndex = 0
 
-    override fun spielzug(): Ausgang? {
-        println()
-        feld.darstellen()
-
-        val amZugSpieler = spieler[amZugIndex]
-        println("${amZugSpieler.name} am Zug")
-        when (amZugSpieler.art) {
-            SpielerArt.MENSCH -> spielzug_spieler(amZugSpieler)
-            SpielerArt.COMPUTER -> spielzug_computer(amZugSpieler)
-        }
-
-        amZugIndex++;
-        if (amZugIndex == spieler.size) {
-            amZugIndex = 0
-        }
-
-        return this.feld.matrix[0][0]?.let { Ausgang.Verloren(it) }
+    override fun amZug(): Spieler {
+        return spieler[amZugIndex]
     }
 
-    private fun spielzug_spieler(selbst: Spieler) {
-        while (true) {
-            val x = intInput("In Spalte setzen", 1..this.feld.breite)
-            val y = intInput("In Zeile setzen", 1..this.feld.hoehe)
+    override fun zug(x: Int, y: Int): Ausgang? {
+        val amZugSpieler = spieler[amZugIndex]
+        if (!this.setzen(x, y, amZugSpieler)) {
+            return null;
+        }
 
-            if (!this.setzen(x - 1, y - 1, selbst)) {
-                println("Feld schon belegt, anderes Feld wählen")
+        while (this.feld.get(0, 0) == null) {
+            amZugIndex++;
+            if (amZugIndex == spieler.size) {
+                amZugIndex = 0
+            }
+
+            val amZugSpieler = spieler[amZugIndex]
+            if (spieler[amZugIndex].art == SpielerArt.COMPUTER) {
+                spielzug_computer(amZugSpieler)
             } else {
                 break
             }
         }
+
+        return this.feld.get(0, 0)?.let { Ausgang.Verloren(it) }
     }
 
     private fun spielzug_computer(computer: Spieler) {
@@ -52,8 +50,8 @@ class Futtern(
             //was der Vorgänger tut
 //---------------QUADRATISCH------------------------
             if (!setzen(1, 1, computer)) {
-                val nachUnten = feld.matrix.indexOfLast { it[0] == null }
-                val nachRechts = feld.matrix[0].indexOfLast { it == null }
+                val nachUnten = feld.reihen().indexOfLast { it[0] == null }
+                val nachRechts = feld.reihen()[0].indexOfLast { it == null }
 
                 //checken, ob die erste zeile und die erste spalte gleich lang sind
                 if (nachUnten == nachRechts) {
@@ -87,14 +85,14 @@ class Futtern(
             }
 
             //ist das schon belegt?
-            if (feld.matrix[y][x] == null) {
+            if (this.feld.get(x, y) == null) {
                 return Pair(x, y)
             }
         }
     }
 
     fun generierenUndChecken(computer: Spieler) {
-        val voll = feld.matrix[1][0] != null && feld.matrix[0][1] != null
+        val voll = this.feld.get(0, 1) != null && this.feld.get(1, 0) != null
         if (voll) {
             this.setzen(0, 0, computer)
             return
@@ -104,9 +102,9 @@ class Futtern(
             val (x, y) = randomPlatz()
 
             val anzahlVerbleiben =
-                feld.matrix.indices.sumOf { y_i ->
-                    feld.matrix[y_i].indices.count { x_i ->
-                        feld.matrix[y_i][x_i] == null && (x > x_i || y > y_i)
+                feld.reihen().indices.sumOf { y_i ->
+                    feld.reihen()[y_i].indices.count { x_i ->
+                        this.feld.get(x_i, y_i) == null && (x > x_i || y > y_i)
                     }
                 }
 
@@ -117,28 +115,23 @@ class Futtern(
         }
     }
 
-    override fun durchgang(): Ausgang? {
-        for (s in spieler) {
-            val ausgang = spielzug()
-            if (ausgang != null) {
-                return ausgang
-            }
-        }
-        return null
-    }
-
     private fun setzen(x: Int, y: Int, spieler: Spieler): Boolean {
-        if (feld.matrix[y][x] != null) {
+        if (this.feld.get(x, y) != null) {
             return false
         }
 
-        for (row in this.feld.matrix.drop(y)) {
-            for (i in row.indices.drop(x)) {
-                if (row[i] == null) {
-                    row[i] = spieler
+        for (iy in this.feld.reihen().indices.drop(y)) {
+            for (ix in this.feld.spalten().indices.drop(x)) {
+                if (this.feld.get(ix, iy) == null) {
+                    this.feld.set(ix, iy, spieler)
                 }
             }
         }
         return true
+    }
+
+    @Composable
+    override fun ui(onSet: (x: Int, y: Int) -> Unit) {
+        this.feld.ui(onSet)
     }
 }

@@ -1,70 +1,72 @@
+import androidx.compose.runtime.Composable
+
 class VierGewinnt(
     hoehe: Int,
     breite: Int,
     spieler: Array<Spieler>,
-    override val feld: MatrixSpielfeld = MatrixSpielfeld(hoehe, breite)
+    onSet: (x: Int, y: Int, spieler: Spieler) -> Unit,
+    override val feld: MatrixSpielfeld = MatrixSpielfeld(hoehe, breite, onSet)
 ) : Spiel(spieler, feld) {
 
     private var amZugIndex = 0
 
-    override fun spielzug(): Ausgang? {
-        println()
-        feld.darstellen()
+    override fun amZug(): Spieler {
+        return spieler[amZugIndex]
+    }
 
+    override fun zug(x: Int, y: Int): Ausgang? {
         val amZugSpieler = spieler[amZugIndex]
-        println("${amZugSpieler.name} am Zug")
-        when (amZugSpieler.art) {
-            SpielerArt.MENSCH -> spielzug_spieler(amZugSpieler)
-            SpielerArt.COMPUTER -> spielzug_computer(amZugSpieler)
+        if (!this.einwerfen(x, amZugSpieler)) {
+            return null;
         }
 
-        amZugIndex++;
-        if (amZugIndex == spieler.size) {
-            amZugIndex = 0
+        while (true) {
+            if (this.unentschieden()) {
+                return Ausgang.Unentschieden
+            } else {
+                val gewinner = this.gewinner()
+                if (gewinner != null) {
+                    return Ausgang.Gewonnen(gewinner)
+                }
+            }
+
+            amZugIndex++;
+            if (amZugIndex == spieler.size) {
+                amZugIndex = 0
+            }
+
+            val amZugSpieler = spieler[amZugIndex]
+            if (spieler[amZugIndex].art == SpielerArt.COMPUTER) {
+                spielzug_computer(amZugSpieler)
+            } else {
+                break
+            }
         }
 
-        return if (this.unentschieden()) {
-            Ausgang.Unentschieden
-        } else {
-            this.gewinner()?.let { Ausgang.Gewonnen(it) }
-        }
+        return null
     }
 
     private fun kannEinwerfen(x: Int): Boolean {
-        return this.feld.matrix[0][x] == null
+        return this.feld.get(x, 0) == null
     }
 
     private fun einwerfen(x: Int, spieler: Spieler): Boolean {
-        for (i in this.feld.matrix.indices.reversed()) {
-            if (this.feld.matrix[i][x] == null) {
-                this.feld.matrix[i][x] = spieler
+        for (y in (0..<this.feld.hoehe).reversed()) {
+            if (this.feld.get(x, y) == null) {
+                this.feld.set(x, y, spieler)
                 return true
             }
         }
         return false
     }
 
-    override fun durchgang(): Ausgang? {
-        for (s in spieler) {
-            val ausgang = spielzug()
-            if (ausgang != null) {
-                return ausgang
-            }
-        }
-        return null
-    }
-
     private fun unentschieden(): Boolean {
-        return this.feld.matrix.all { reihe ->
-            reihe.all { feld ->
-                feld != null
-            }
-        }
+        return this.feld.entries().all { it != null }
     }
 
     private fun gewinner(): Spieler? {
         // Reihen prüfen
-        for (reihe in this.feld.matrix) {
+        for (reihe in this.feld.reihen()) {
             for (i in 0..reihe.size - 4) {
                 if (reihe[i] != null &&
                     reihe[i] == reihe[i + 1] &&
@@ -79,12 +81,12 @@ class VierGewinnt(
         // Spalten prüfen
         for (x in 0..<this.feld.breite) {
             for (y in 0..this.feld.hoehe - 4) {
-                val erstes = this.feld.matrix[y][x]
+                val erstes = this.feld.get(x, y)
                 if (
                     erstes != null &&
-                    erstes == this.feld.matrix[y + 1][x] &&
-                    erstes == this.feld.matrix[y + 2][x] &&
-                    erstes == this.feld.matrix[y + 3][x]
+                    erstes == this.feld.get(x, y + 1) &&
+                    erstes == this.feld.get(x, y + 2) &&
+                    erstes == this.feld.get(x, y + 3)
                 ) {
                     return erstes
                 }
@@ -94,12 +96,12 @@ class VierGewinnt(
         // Diagonale \ prüfen
         for (y in 0..this.feld.hoehe - 4) {
             for (x in 0..this.feld.breite - 4) {
-                val erstes = this.feld.matrix[y][x]
+                val erstes = this.feld.get(x, y)
                 if (
                     erstes != null &&
-                    erstes == this.feld.matrix[y + 1][x + 1] &&
-                    erstes == this.feld.matrix[y + 2][x + 2] &&
-                    erstes == this.feld.matrix[y + 3][x + 3]
+                    erstes == this.feld.get(x + 1, y + 1) &&
+                    erstes == this.feld.get(x + 2, y + 2) &&
+                    erstes == this.feld.get(x + 3, y + 3)
                 ) {
                     return erstes
                 }
@@ -109,12 +111,12 @@ class VierGewinnt(
         // Diagonale / prüfen
         for (y in 0..this.feld.hoehe - 4) {
             for (x in 0..this.feld.breite - 4) {
-                val erstes = this.feld.matrix[y][x + 3]
+                val erstes = this.feld.get(x + 3, y)
                 if (
                     erstes != null &&
-                    erstes == this.feld.matrix[y + 1][x + 2] &&
-                    erstes == this.feld.matrix[y + 2][x + 1] &&
-                    erstes == this.feld.matrix[y + 3][x]
+                    erstes == this.feld.get(x + 2, y + 1) &&
+                    erstes == this.feld.get(x + 1, y + 2) &&
+                    erstes == this.feld.get(x, y + 3)
                 ) {
                     return erstes
                 }
@@ -122,18 +124,6 @@ class VierGewinnt(
         }
 
         return null
-    }
-
-    private fun spielzug_spieler(selbst: Spieler) {
-        while (true) {
-            val x = intInput("In Spalte setzen", 1..this.feld.breite)
-
-            if (!einwerfen(x - 1, selbst)) {
-                println("Spalte schon voll, andere Spalte wählen.")
-            } else {
-                break
-            }
-        }
     }
 
     private fun spielzug_computer(computer: Spieler) {
@@ -153,23 +143,23 @@ class VierGewinnt(
 
     private fun maske_testen(x: Int, y: Int, diagonal: Int, computer: Spieler): Int? {
         // Mitte frei testen
-        var drunterFrei = y + 1 >= this.feld.hoehe || this.feld.matrix[y + 1][x] != null
+        var drunterFrei = y + 1 >= this.feld.hoehe || this.feld.get(x, y + 1) != null
         if (drunterFrei &&
-            this.feld.matrix[y][x] == null &&
-            this.feld.matrix[y - diagonal][x - 1] != null &&
-            this.feld.matrix[y - diagonal][x - 1] != computer &&
-            this.feld.matrix[y - diagonal][x - 1] == this.feld.matrix[y + diagonal][x + 1]
+            this.feld.get(x, y) == null &&
+            this.feld.get(x - 1, y - diagonal) != null &&
+            this.feld.get(x - 1, y - diagonal) != computer &&
+            this.feld.get(x - 1, y - diagonal) == this.feld.get(x + 1, y + diagonal)
         ) {
             return x
         }
 
         // Links frei testen
-        drunterFrei = y - diagonal + 1 >= this.feld.hoehe || this.feld.matrix[y - diagonal + 1][x - 1] != null
+        drunterFrei = y - diagonal + 1 >= this.feld.hoehe || this.feld.get(x - 1, y - diagonal + 1) != null
         if (drunterFrei &&
-            this.feld.matrix[y - diagonal][x - 1] == null &&
-            this.feld.matrix[y][x] != null &&
-            this.feld.matrix[y][x] != computer &&
-            this.feld.matrix[y][x] == this.feld.matrix[y + diagonal][x + 1]
+            this.feld.get(x - 1, y - diagonal) == null &&
+            this.feld.get(x, y) != null &&
+            this.feld.get(x, y) != computer &&
+            this.feld.get(x, y) == this.feld.get(x + 1, y + diagonal)
         ) {
             return x - 1
         }
@@ -198,10 +188,10 @@ class VierGewinnt(
             }
 
             // Übereinander verhindern
-            if (this.feld.matrix[y - 1][x] == null &&
-                this.feld.matrix[y][x] != null &&
-                this.feld.matrix[y][x] != computer &&
-                this.feld.matrix[y][x] == this.feld.matrix[y + 1][x]
+            if (this.feld.get(x, y - 1) == null &&
+                this.feld.get(x, y) != null &&
+                this.feld.get(x, y) != computer &&
+                this.feld.get(x, y) == this.feld.get(x, y + 1)
             ) {
                 return x
             }
@@ -218,7 +208,9 @@ class VierGewinnt(
             }
         }
     }
+
+    @Composable
+    override fun ui(onSet: (x: Int, y: Int) -> Unit) {
+        this.feld.ui(onSet)
+    }
 }
-
-
-

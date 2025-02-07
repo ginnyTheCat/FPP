@@ -13,9 +13,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.apache.commons.mail2.javax.SimpleEmail
+import java.io.File
 import java.io.OutputStream
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.URLDecoder
+import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.*
 import kotlin.concurrent.thread
@@ -28,8 +31,8 @@ data class Nutzer(
 )
 
 class Server(
-    private val uniUser: String?,
-    private val uniPassword: String?
+    private val email: String?,
+    private val emailPassword: String?
 ) {
     private var serverSocket: ServerSocket? = null
     private var users = mutableStateMapOf<String, Nutzer>()
@@ -37,10 +40,35 @@ class Server(
     private var log = mutableStateListOf<String>()
 
     fun start() {
+        this.load()
         val socket = ServerSocket(9876)
         log.add("Hört auf Port :${socket.localPort}")
         this.serverSocket = socket
         thread { this.hintergrund(socket) }
+    }
+
+    private fun load() {
+        try {
+            File("users.csv").useLines { lines ->
+                lines.forEach {
+                    val parts = it.split(",").map { s -> URLDecoder.decode(s, Charsets.UTF_8) }
+                    users[parts[0]] = Nutzer(parts[0], parts[1], parts[2])
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun save() {
+        try {
+            File("users.csv").writeText(
+                users.values.joinToString("\n") {
+                    arrayOf(it.email, it.name, it.passwort).joinToString(",") { s ->
+                        URLEncoder.encode(s, Charsets.UTF_8)
+                    }
+                })
+        } catch (_: Exception) {
+        }
     }
 
     private fun hintergrund(socket: ServerSocket) {
@@ -105,16 +133,18 @@ class Server(
 
     fun registrieren(email: String, name: String) {
         val alphabet = ('A'..'Z') + ('a'..'z') + ('0'..'9')
-        val passwort = String(CharArray(12) { alphabet.random() })
+        val passwortLen = if (this.email == null) 2 else 12
+        val passwort = String(CharArray(passwortLen) { alphabet.random() })
 
-        if (this.uniUser != null && this.uniPassword != null) {
+        if (this.email != null && this.emailPassword != null) {
             val mail = SimpleEmail()
             // mail.isDebug = true
 
-            mail.hostName = "smtp.uni-jena.de"
-            mail.isStartTLSEnabled = true
-            mail.setAuthentication("${this.uniUser}@uni-jena.de", this.uniPassword)
-            mail.setFrom("${this.uniUser}@uni-jena.de", "FPP")
+            mail.hostName = "mail.gmx.net"
+            mail.isStartTLSEnabled = false
+            mail.isSSLOnConnect = true
+            mail.setAuthentication(this.email, this.emailPassword)
+            mail.setFrom(this.email, "FPP")
 
             mail.addTo(email, name)
 
@@ -129,6 +159,7 @@ class Server(
 
         val nutzer = Nutzer(email, name, passwort)
         this.users[email] = nutzer
+        this.save()
 
         log.add("Nutzer $email mit Name \"$name\" registriert")
     }
@@ -137,7 +168,7 @@ class Server(
         val nutzer = this.users[email]
         if (nutzer?.passwort == passwort) {
             con.nutzer.value = nutzer
-            this.anAlleSenden(Nachricht.Verbinden(nutzer.name))
+            this.pool.keys.forEach { it.sende(Nachricht.Verbinden(nutzer.name, it.nutzer.value == nutzer)) }
             con.sende(Nachricht.Success("an"))
             log.add("Erfolgreiche Anmeldung von $email")
         } else {
@@ -150,6 +181,7 @@ class Server(
         val nutzer = con.nutzer.value
         if (nutzer?.passwort == alt) {
             nutzer.passwort = neu
+            this.save()
             con.sende(Nachricht.Success("chpwd"))
             log.add("Erfolgreiche Passwortänderung von ${nutzer.email}")
         } else {
@@ -162,12 +194,54 @@ class Server(
         log.add("Nachricht von ${nutzer?.name}: $content")
         this.anAlleSenden(Nachricht.Text(nutzer?.name, content))
     }
+
+    private fun findUser(name: String): ServerConnection? = this.pool.keys.find { it.nutzer.value?.name == name }
+
+    fun invite(name: String, from: Nutzer, game: Game, width: Int, height: Int) {
+        log.add("Einladung zu ${width}x${height} ${game.plain} von ${from.name} an $name")
+        this.findUser(name)?.sende(Nachricht.Einladen(from.name, game, width, height))
+    }
+
+    fun createRoom(user1: ServerConnection, user2: String?, game: Game, width: Int, height: Int) {
+        log.add("Spiel zwischen ${width}x${height} ${game.plain} zwischen ${user1.nutzer.value!!.name} und ${user2 ?: "dem Computer"}")
+        val user2 = user2?.let { this.findUser(it)!! }
+
+        val spiel = game.create(
+            width, height, arrayOf(
+                Spieler(user1.nutzer.value!!.name, SpielerArt.MENSCH),
+                Spieler(
+                    user2?.nutzer?.value?.name ?: "Computer",
+                    if (user2 == null) SpielerArt.COMPUTER else SpielerArt.MENSCH
+                ),
+            )
+        ) { x, y, spieler ->
+            log.add("Setze ${x + 1}, ${y + 1} auf ${spieler.name}")
+            user1.sende(Nachricht.Setzen(spieler.name, x, y))
+            user2?.sende(Nachricht.Setzen(spieler.name, x, y))
+        }
+        user1.room.value = spiel
+        user2?.room?.value = spiel
+
+        user1.sende(Nachricht.Beitreten(user2?.nutzer?.value?.name ?: "Computer", game, width, height))
+        user2?.sende(Nachricht.Beitreten(user1.nutzer.value!!.name, game, width, height))
+    }
+
+    fun setzen(spieler: Spieler, spiel: Spiel, x: Int, y: Int) {
+        if (spiel.amZug().name == spieler.name) {
+            val ausgang = spiel.zug(x, y)
+            if (ausgang != null) {
+                this.log.add("Nach Zug von ${spieler.name}: $ausgang")
+                this.pool.keys.filter { it.room.value == spiel }.forEach { it.sende(Nachricht.End(ausgang)) }
+            }
+        }
+    }
 }
 
 class ServerConnection(private val server: Server, private val socket: Socket) {
     private val reader: Scanner = Scanner(socket.getInputStream())
     private val writer: OutputStream = socket.getOutputStream()
 
+    val room = mutableStateOf<Spiel?>(null)
     val nutzer = mutableStateOf<Nutzer?>(null)
 
     fun sende(msg: Nachricht) {
@@ -200,6 +274,22 @@ class ServerConnection(private val server: Server, private val socket: Socket) {
             is Nachricht.Anmelden -> this.server.anmelden(this, msg.email, msg.passwort)
             is Nachricht.PasswortAendern -> this.server.passwortAendern(this, msg.alt, msg.neu)
             is Nachricht.Text -> this.server.message(this.nutzer.value, msg.content)
+            is Nachricht.Einladen -> this.server.invite(msg.name, this.nutzer.value!!, msg.game, msg.width, msg.height)
+            is Nachricht.Beitreten -> this.server.createRoom(
+                this,
+                if (msg.name == "") null else msg.name,
+                msg.game,
+                msg.width,
+                msg.height
+            )
+
+            is Nachricht.Setzen -> this.server.setzen(
+                Spieler(this.nutzer.value!!.name, SpielerArt.MENSCH),
+                this.room.value!!,
+                msg.x,
+                msg.y,
+            )
+
             else -> {}
         }
     }

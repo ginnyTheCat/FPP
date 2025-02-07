@@ -1,15 +1,21 @@
+import androidx.compose.runtime.Composable
+
 abstract class Spielfeld(
-    val hoehe: Int,
     val breite: Int,
-) : Protokollierbar {
-    abstract fun darstellen()
-
-    private val zuege = ArrayList<String>()
-    override fun zugHinzufuegen(spielzug: Int, hoehe: Int, breite: Int) {
-        zuege.add("$spielzug: setze($hoehe, $breite)")
+    val hoehe: Int,
+    private val onSet: (x: Int, y: Int, spieler: Spieler) -> Unit
+) {
+    open fun set(x: Int, y: Int, spieler: Spieler) {
+        this.onSet(x, y, spieler)
     }
 
-    override fun zugEntfernen(spielzug: Int) {
-        zuege.removeAt(spielzug)
-    }
+    abstract fun get(x: Int, y: Int): Spieler?
+
+    fun reihen() = (0..<hoehe).map { y -> (0..<breite).map { x -> this.get(x, y) } }
+    fun spalten() = (0..<breite).map { x -> (0..<hoehe).map { y -> this.get(x, y) } }
+
+    fun entries() = (0..<breite).flatMap { x -> (0..<hoehe).map { y -> this.get(x, y) } }
+
+    @Composable
+    abstract fun ui(onSet: (x: Int, y: Int) -> Unit)
 }
