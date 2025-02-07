@@ -32,6 +32,8 @@ sealed class Nachricht(kind: String, vararg args: String?) {
         },
     )
 
+    class Room(val names: Array<String>) : Nachricht("room", args = names)
+
     class Verbinden(val name: String, val self: Boolean) : Nachricht("con", name, if (self) "1" else "0")
     class Trennen(val name: String) : Nachricht("dis", name)
 
@@ -67,6 +69,8 @@ sealed class Nachricht(kind: String, vararg args: String?) {
 
             is Setzen -> "Set($name, $x, $y)"
             is End -> "End($ausgang)"
+
+            is Room -> "Room($names)"
 
             is Verbinden -> "Verbinden($name)"
             is Trennen -> "Trennen($name)"
@@ -104,7 +108,6 @@ sealed class Nachricht(kind: String, vararg args: String?) {
                     args[3].toInt(),
                 )
 
-
                 first == "set" && args.size == 2 -> Setzen(null, args[0].toInt(), args[1].toInt())
                 first == "set" && args.size == 3 -> Setzen(args[0], args[1].toInt(), args[2].toInt())
                 first == "end" && (args.size == 1 || args.size == 2) -> End(
@@ -115,6 +118,8 @@ sealed class Nachricht(kind: String, vararg args: String?) {
                         else -> throw IllegalStateException(args[0])
                     }
                 )
+
+                first == "room" -> Room(args.toTypedArray())
 
                 first == "con" && args.size == 2 -> Verbinden(args[0], args[1] == "1")
                 first == "dis" && args.size == 1 -> Trennen(args[0])

@@ -1,4 +1,5 @@
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -23,7 +24,7 @@ val colors = listOf(
     Color.Green,
 )
 
-class MatrixSpielfeld(hoehe: Int, breite: Int, private val onSet: (x: Int, y: Int, spieler: Spieler) -> Unit) :
+class MatrixSpielfeld(hoehe: Int, breite: Int, onSet: (x: Int, y: Int, spieler: Spieler) -> Unit) :
     Spielfeld(breite, hoehe, onSet) {
 
     private val matrix = mutableStateListOf<Spieler?>().also {
@@ -38,11 +39,17 @@ class MatrixSpielfeld(hoehe: Int, breite: Int, private val onSet: (x: Int, y: In
 
     @Composable
     override fun ui(onSet: (x: Int, y: Int) -> Unit) {
-        val size = 512.dp
+        val size = 400.dp
         val longSide = max(breite, hoehe)
         val squareSize = size / longSide
 
-        LazyVerticalGrid(columns = GridCells.Fixed(breite), modifier = Modifier.size(size)) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(breite),
+            modifier = Modifier
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                .padding(4.dp)
+                .size(size)
+        ) {
             itemsIndexed(matrix) { i, entry ->
                 val color = if (entry == null) {
                     MaterialTheme.colorScheme.surfaceVariant

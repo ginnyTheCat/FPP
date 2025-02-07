@@ -1,12 +1,8 @@
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.ZeroCornerSize
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -14,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -39,6 +34,7 @@ class Client(
     private val chatting = mutableStateOf(false)
     private var spiel = mutableStateOf<Spiel?>(null)
     private val nachrichten = mutableStateListOf<Nachricht>()
+    private val rooms = mutableStateOf<List<String>>(listOf())
 
     private val online = mutableStateMapOf<String, Boolean>()
 
@@ -46,7 +42,6 @@ class Client(
         val socket = Socket(adresse, port)
         this.socket = socket
         this.ausgang = socket.getOutputStream()
-        thread { this.hintergrund(socket) }
     }
 
     fun stop() {
@@ -55,6 +50,10 @@ class Client(
 
     @Composable
     fun ui() {
+        LaunchedEffect(true) {
+            thread { hintergrund(socket!!) }
+        }
+
         if (spiel.value != null) {
             spielDialog()
         } else if (chatting.value) {
@@ -66,10 +65,21 @@ class Client(
 
     @Composable
     private fun spielDialog() {
-        Box(Modifier.fillMaxSize()) {
-            Box(Modifier.align(Alignment.Center)) {
-                spiel.value!!.ui { x, y ->
-                    sende(Nachricht.Setzen(null, x, y))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.fillMaxSize().weight(1f)) {
+                Box(Modifier.align(Alignment.Center)) {
+                    spiel.value!!.ui { x, y -> sende(Nachricht.Setzen(null, x, y)) }
+                }
+            }
+            Column(Modifier.fillMaxWidth().weight(1f)) {
+                Button(
+                    { sende(Nachricht.Beitreten("", Game.VierGewinnt, 0, 0)) },
+                    Modifier.fillMaxWidth(),
+                ) {
+                    Text("Aufgeben")
+                }
+                ChatView(nachrichten) {
+                    sende(Nachricht.Text(null, it))
                 }
             }
         }
@@ -144,60 +154,11 @@ class Client(
     private fun chatDialog() {
         var changePassword by remember { mutableStateOf(false) }
 
-        var input by remember { mutableStateOf("") }
         var invite by remember { mutableStateOf<String?>(null) }
 
-        fun send() {
-            if (input.isNotEmpty()) {
-                sende(Nachricht.Text(null, input))
-                input = ""
-            }
-        }
-
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                LazyColumn(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    items(nachrichten) {
-                        when (it) {
-                            is Nachricht.Text -> Row {
-                                Text("${it.from!!}:")
-                                Spacer(Modifier.width(4.dp))
-                                Card(shape = CircleShape.copy(bottomStart = ZeroCornerSize)) {
-                                    Text(it.content, Modifier.padding(horizontal = 12.dp))
-                                }
-                            }
-
-                            is Nachricht.Verbinden -> Text("${it.name} ist dem Raum beigetreten.")
-                            is Nachricht.Trennen -> Text("${it.name} hat den Raum verlassen.")
-
-                            else -> Text(it.toString())
-                        }
-                    }
-                }
-                TextField(
-                    input, { input = it },
-                    Modifier.fillMaxWidth(),
-                    placeholder = { Text("Nachricht senden...") },
-                    trailingIcon = {
-                        IconButton(
-                            { send() },
-                            enabled = input.isNotEmpty()
-                        ) { Icon(Icons.AutoMirrored.Default.Send, null) }
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { send() }),
-                    shape = CircleShape,
-                    colors = TextFieldDefaults.colors(
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        disabledIndicatorColor = Color.Transparent,
-                        errorIndicatorColor = Color.Transparent,
-                    )
-                )
+            ChatView(nachrichten, Modifier.weight(1f)) {
+                sende(Nachricht.Text(null, it))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -208,7 +169,7 @@ class Client(
                         Text("Bot herausfordern")
                     }
                 }
-                Card(Modifier.fillMaxHeight()) {
+                Card(Modifier.fillMaxSize().weight(1f)) {
                     Text(
                         "Momentan Online",
                         Modifier.padding(16.dp),
@@ -229,11 +190,27 @@ class Client(
                         }
                     }
                 }
+                Card(Modifier.fillMaxSize().weight(1f)) {
+                    Text(
+                        "Aktuelle Spiele",
+                        Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    LazyColumn {
+                        items(rooms.value) {
+                            ListItem(
+                                leadingContent = { Icon(Icons.Default.Casino, null) },
+                                headlineContent = { Text(it) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            )
+                        }
+                    }
+                }
             }
         }
 
-        var width by remember { mutableIntStateOf(7) }
-        var height by remember { mutableIntStateOf(7) }
+        var width by remember { mutableStateOf("7") }
+        var height by remember { mutableStateOf("7") }
         var game by remember { mutableStateOf(Game.VierGewinnt) }
         if (invite != null) {
             Dialog(onDismissRequest = { invite = null }) {
@@ -244,13 +221,13 @@ class Client(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             OutlinedTextField(
-                                width.toString(), { width = it.toIntOrNull() ?: width },
+                                width, { width = it },
                                 Modifier.fillMaxWidth().weight(1f),
                                 label = { Text("Breite") },
                             )
                             Icon(Icons.Default.Close, null)
                             OutlinedTextField(
-                                height.toString(), { height = it.toIntOrNull() ?: height },
+                                height, { height = it },
                                 Modifier.fillMaxWidth().weight(1f),
                                 label = { Text("Höhe") },
                             )
@@ -266,14 +243,23 @@ class Client(
                             }
                         }
 
-                        Button({
-                            if (invite == "") {
-                                sende(Nachricht.Beitreten("", game, width, height))
-                            } else {
-                                sende(Nachricht.Einladen(invite!!, game, width, height))
-                            }
-                            invite = null
-                        }) { Text(if (invite == "") "Bot herausfordern" else "Einladen") }
+                        val enabled by derivedStateOf {
+                            val width = width.toIntOrNull() ?: 0
+                            val height = height.toIntOrNull() ?: 0
+                            width in 1..20 && height in 1..20
+                        }
+
+                        Button(
+                            enabled = enabled,
+                            onClick = {
+                                if (invite == "") {
+                                    sende(Nachricht.Beitreten("", game, width.toInt(), height.toInt()))
+                                } else {
+                                    sende(Nachricht.Einladen(invite!!, game, width.toInt(), height.toInt()))
+                                }
+                                invite = null
+                            },
+                        ) { Text(if (invite == "") "Bot herausfordern" else "Raum erstellen") }
                     }
                 }
             }
@@ -349,6 +335,11 @@ class Client(
 
             is Nachricht.Verbinden -> this.online[msg.name] = msg.self
             is Nachricht.Trennen -> this.online.remove(msg.name)
+
+            is Nachricht.Room -> {
+                this.rooms.value = msg.names.toList()
+                return
+            }
 
             is Nachricht.Success -> {
                 when (msg.where) {

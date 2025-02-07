@@ -3,6 +3,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -79,7 +80,10 @@ class Server(
             this.pool[handler] = Unit
             log.add("Client ${con.remoteSocketAddress} verbunden")
             thread {
+                this.sendMemberUpdates(handler)
+                this.sendRoomUpdates()
                 handler.handle()
+                this.quitGame(handler)
                 this.pool.remove(handler)
                 log.add("Client ${con.remoteSocketAddress} getrennt")
             }
@@ -115,6 +119,20 @@ class Server(
                         }
                     }
                 }
+                Card(Modifier.fillMaxSize().weight(1f)) {
+                    Text("Aktuelle Spiele", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
+                    LazyColumn {
+                        val games = pool.keys.mapNotNull { it.room.value }.toSet().toList()
+                        items(games) { game ->
+                            ListItem(
+                                leadingContent = { Icon(Icons.Default.Casino, null) },
+                                headlineContent = { Text(game.spieler.joinToString(" gegen ") { it.name }) },
+                                supportingContent = { Text("${game.feld.breite}x${game.feld.hoehe} ${if (game as? VierGewinnt == null) "Futtern" else "Vier gewinnt"}") },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            )
+                        }
+                    }
+                }
             }
             Card(Modifier.fillMaxSize().weight(1f)) {
                 Text("Logbuch", Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge)
@@ -125,6 +143,16 @@ class Server(
                 }
             }
         }
+    }
+
+    private fun sendMemberUpdates(client: ServerConnection) {
+        this.pool.keys.mapNotNull { it.nutzer.value }.forEach { client.sende(Nachricht.Verbinden(it.name, false)) }
+    }
+
+    private fun sendRoomUpdates() {
+        val games = pool.keys.mapNotNull { it.room.value }.toSet().toList()
+        val nameGames = games.map { it.spieler.joinToString(" gegen ") }
+        this.anAlleSenden(Nachricht.Room(nameGames.toTypedArray()))
     }
 
     fun anAlleSenden(msg: Nachricht) {
@@ -190,9 +218,9 @@ class Server(
         }
     }
 
-    fun message(nutzer: Nutzer?, content: String) {
+    fun message(nutzer: Nutzer?, game: Spiel?, content: String) {
         log.add("Nachricht von ${nutzer?.name}: $content")
-        this.anAlleSenden(Nachricht.Text(nutzer?.name, content))
+        this.pool.keys.filter { it.room.value == game }.forEach { it.sende(Nachricht.Text(nutzer?.name, content)) }
     }
 
     private fun findUser(name: String): ServerConnection? = this.pool.keys.find { it.nutzer.value?.name == name }
@@ -202,8 +230,18 @@ class Server(
         this.findUser(name)?.sende(Nachricht.Einladen(from.name, game, width, height))
     }
 
+    fun quitGame(user: ServerConnection) {
+        val game = user.room.value ?: return
+        log.add("${user.nutzer.value!!.name} gibt auf")
+        this.pool.keys.filter { it.room.value == game }.forEach {
+            it.sende(Nachricht.End(Ausgang.Verloren(Spieler(user.nutzer.value!!.name, SpielerArt.MENSCH))))
+            it.room.value = null
+        }
+        sendRoomUpdates()
+    }
+
     fun createRoom(user1: ServerConnection, user2: String?, game: Game, width: Int, height: Int) {
-        log.add("Spiel zwischen ${width}x${height} ${game.plain} zwischen ${user1.nutzer.value!!.name} und ${user2 ?: "dem Computer"}")
+        log.add("Erstelle ${width}x${height} ${game.plain} Raum mit ${user1.nutzer.value!!.name} und ${user2 ?: "dem Computer"}")
         val user2 = user2?.let { this.findUser(it)!! }
 
         val spiel = game.create(
@@ -215,7 +253,7 @@ class Server(
                 ),
             )
         ) { x, y, spieler ->
-            log.add("Setze ${x + 1}, ${y + 1} auf ${spieler.name}")
+            // log.add("Setze ${x + 1}, ${y + 1} auf ${spieler.name}")
             user1.sende(Nachricht.Setzen(spieler.name, x, y))
             user2?.sende(Nachricht.Setzen(spieler.name, x, y))
         }
@@ -231,7 +269,11 @@ class Server(
             val ausgang = spiel.zug(x, y)
             if (ausgang != null) {
                 this.log.add("Nach Zug von ${spieler.name}: $ausgang")
-                this.pool.keys.filter { it.room.value == spiel }.forEach { it.sende(Nachricht.End(ausgang)) }
+                this.pool.keys.filter { it.room.value == spiel }.forEach {
+                    it.sende(Nachricht.End(ausgang))
+                    it.room.value = null
+                }
+                this.sendRoomUpdates()
             }
         }
     }
@@ -273,15 +315,19 @@ class ServerConnection(private val server: Server, private val socket: Socket) {
             is Nachricht.Registrieren -> this.server.registrieren(msg.email, msg.name)
             is Nachricht.Anmelden -> this.server.anmelden(this, msg.email, msg.passwort)
             is Nachricht.PasswortAendern -> this.server.passwortAendern(this, msg.alt, msg.neu)
-            is Nachricht.Text -> this.server.message(this.nutzer.value, msg.content)
+            is Nachricht.Text -> this.server.message(this.nutzer.value, this.room.value, msg.content)
             is Nachricht.Einladen -> this.server.invite(msg.name, this.nutzer.value!!, msg.game, msg.width, msg.height)
-            is Nachricht.Beitreten -> this.server.createRoom(
-                this,
-                if (msg.name == "") null else msg.name,
-                msg.game,
-                msg.width,
-                msg.height
-            )
+            is Nachricht.Beitreten -> if (msg.width == 0 || msg.height == 0) {
+                this.server.quitGame(this)
+            } else {
+                this.server.createRoom(
+                    this,
+                    if (msg.name == "") null else msg.name,
+                    msg.game,
+                    msg.width,
+                    msg.height
+                )
+            }
 
             is Nachricht.Setzen -> this.server.setzen(
                 Spieler(this.nutzer.value!!.name, SpielerArt.MENSCH),
