@@ -62,7 +62,7 @@ fun main() = application {
 
                     App.Server -> {
                         val server =
-                            remember { Server(null, null).also { it.start() } }
+                            remember { Server("fpp.uni@gmx.de", "fppunijena").also { it.start() } }
                         server.ui()
                     }
                 }

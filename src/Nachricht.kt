@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets
 sealed class Nachricht(kind: String, vararg args: String?) {
 
     val wire: String =
-        "$kind ${args.filterNotNull().joinToString(" ") { URLEncoder.encode(it, StandardCharsets.UTF_8) }}"
+        kind + args.filterNotNull().joinToString("") { " " + URLEncoder.encode(it, StandardCharsets.UTF_8) }
 
     class Registrieren(val email: String, val name: String) : Nachricht("reg", email, name)
     class Anmelden(val email: String, val passwort: String) : Nachricht("an", email, passwort)
@@ -34,7 +34,11 @@ sealed class Nachricht(kind: String, vararg args: String?) {
 
     class Room(val names: Array<String>) : Nachricht("room", args = names)
 
-    class Verbinden(val name: String, val self: Boolean) : Nachricht("con", name, if (self) "1" else "0")
+    class Verbinden(val name: String, val self: Boolean, val update: Boolean) :
+        Nachricht("con", name, if (self) "1" else "0", if (update) "1" else "0")
+
+    class AmZug(val name: String) : Nachricht("turn", name)
+
     class Trennen(val name: String) : Nachricht("dis", name)
 
     class Success(val where: String) : Nachricht("succ", where)
@@ -72,6 +76,8 @@ sealed class Nachricht(kind: String, vararg args: String?) {
 
             is Room -> "Room($names)"
 
+            is AmZug -> "AmZug($name)"
+
             is Verbinden -> "Verbinden($name)"
             is Trennen -> "Trennen($name)"
 
@@ -87,7 +93,7 @@ sealed class Nachricht(kind: String, vararg args: String?) {
             val parts = s.split(" ").map { URLDecoder.decode(it, StandardCharsets.UTF_8) }
 
             val first = parts.firstOrNull()
-            val args = parts.subList(1, parts.size)
+            val args = parts.drop(1)
             return when {
                 first == "reg" && args.size == 2 -> Registrieren(args[0], args[1])
                 first == "an" && args.size == 2 -> Anmelden(args[0], args[1])
@@ -121,7 +127,9 @@ sealed class Nachricht(kind: String, vararg args: String?) {
 
                 first == "room" -> Room(args.toTypedArray())
 
-                first == "con" && args.size == 2 -> Verbinden(args[0], args[1] == "1")
+                first == "turn" && args.size == 1 -> AmZug(args[0])
+
+                first == "con" && args.size == 3 -> Verbinden(args[0], args[1] == "1", args[2] == "1")
                 first == "dis" && args.size == 1 -> Trennen(args[0])
                 first == "succ" && args.size == 1 -> Success(args[0])
                 first == "fail" && args.size == 1 -> Fail(args[0])
@@ -133,8 +141,7 @@ sealed class Nachricht(kind: String, vararg args: String?) {
 }
 
 enum class Game(val wire: String, val plain: String) {
-    VierGewinnt("v", "Vier gewinnt"),
-    Futtern("f", "Futtern");
+    VierGewinnt("v", "Vier gewinnt"), Futtern("f", "Futtern");
 
     fun create(
         width: Int,

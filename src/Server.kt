@@ -146,13 +146,23 @@ class Server(
     }
 
     private fun sendMemberUpdates(client: ServerConnection) {
-        this.pool.keys.mapNotNull { it.nutzer.value }.forEach { client.sende(Nachricht.Verbinden(it.name, false)) }
+        this.pool.keys.mapNotNull { it.nutzer.value }
+            .forEach { client.sende(Nachricht.Verbinden(it.name, false, false)) }
     }
 
     private fun sendRoomUpdates() {
         val games = pool.keys.mapNotNull { it.room.value }.toSet().toList()
         val nameGames = games.map { it.spieler.joinToString(" gegen ") }
         this.anAlleSenden(Nachricht.Room(nameGames.toTypedArray()))
+
+        pool.keys.forEach {
+            val nutzer = it.nutzer.value
+            if (nutzer != null) {
+                this.pool.keys.forEach { rec ->
+                    rec.sende(Nachricht.Verbinden(nutzer.name, it.room.value != null || it == rec, true))
+                }
+            }
+        }
     }
 
     fun anAlleSenden(msg: Nachricht) {
@@ -196,7 +206,7 @@ class Server(
         val nutzer = this.users[email]
         if (nutzer?.passwort == passwort) {
             con.nutzer.value = nutzer
-            this.pool.keys.forEach { it.sende(Nachricht.Verbinden(nutzer.name, it.nutzer.value == nutzer)) }
+            this.pool.keys.forEach { it.sende(Nachricht.Verbinden(nutzer.name, it.nutzer.value == nutzer, false)) }
             con.sende(Nachricht.Success("an"))
             log.add("Erfolgreiche Anmeldung von $email")
         } else {
@@ -244,24 +254,32 @@ class Server(
         log.add("Erstelle ${width}x${height} ${game.plain} Raum mit ${user1.nutzer.value!!.name} und ${user2 ?: "dem Computer"}")
         val user2 = user2?.let { this.findUser(it)!! }
 
-        val spiel = game.create(
-            width, height, arrayOf(
+        val spieler = if (user2 == null) {
+            arrayOf(
                 Spieler(user1.nutzer.value!!.name, SpielerArt.MENSCH),
-                Spieler(
-                    user2?.nutzer?.value?.name ?: "Computer",
-                    if (user2 == null) SpielerArt.COMPUTER else SpielerArt.MENSCH
-                ),
+                Spieler("Computer", SpielerArt.COMPUTER),
             )
-        ) { x, y, spieler ->
+        } else {
+            arrayOf(
+                Spieler(user2.nutzer.value!!.name, SpielerArt.MENSCH),
+                Spieler(user1.nutzer.value!!.name, SpielerArt.MENSCH),
+            )
+        }
+
+        val spiel = game.create(width, height, spieler) { x, y, spieler ->
             // log.add("Setze ${x + 1}, ${y + 1} auf ${spieler.name}")
             user1.sende(Nachricht.Setzen(spieler.name, x, y))
             user2?.sende(Nachricht.Setzen(spieler.name, x, y))
         }
         user1.room.value = spiel
         user2?.room?.value = spiel
+        this.sendRoomUpdates()
 
         user1.sende(Nachricht.Beitreten(user2?.nutzer?.value?.name ?: "Computer", game, width, height))
         user2?.sende(Nachricht.Beitreten(user1.nutzer.value!!.name, game, width, height))
+
+        user1.sende(Nachricht.AmZug(spieler[0].name))
+        user2?.sende(Nachricht.AmZug(spieler[0].name))
     }
 
     fun setzen(spieler: Spieler, spiel: Spiel, x: Int, y: Int) {
@@ -274,6 +292,11 @@ class Server(
                     it.room.value = null
                 }
                 this.sendRoomUpdates()
+            } else {
+                val amZug = spiel.amZug().name
+                this.pool.keys.filter { it.room.value == spiel }.forEach {
+                    it.sende(Nachricht.AmZug(amZug))
+                }
             }
         }
     }

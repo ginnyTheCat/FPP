@@ -17,11 +17,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.math.max
 
-val colors = listOf(
+val colors = arrayOf(
     Color.Red,
     Color.Blue,
-    Color.Yellow,
     Color.Green,
+    Color.Cyan,
+    Color.Magenta,
+    Color.Black,
 )
 
 class MatrixSpielfeld(hoehe: Int, breite: Int, onSet: (x: Int, y: Int, spieler: Spieler) -> Unit) :

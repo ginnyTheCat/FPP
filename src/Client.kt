@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import java.io.OutputStream
@@ -35,6 +36,7 @@ class Client(
     private var spiel = mutableStateOf<Spiel?>(null)
     private val nachrichten = mutableStateListOf<Nachricht>()
     private val rooms = mutableStateOf<List<String>>(listOf())
+    private val amZug = mutableStateOf("")
 
     private val online = mutableStateMapOf<String, Boolean>()
 
@@ -78,19 +80,34 @@ class Client(
                 ) {
                     Text("Aufgeben")
                 }
+                Text(
+                    "${amZug.value} ist am Zug",
+                    color = colors[amZug.value.hashCode().mod(colors.size)],
+                    textAlign = TextAlign.Center,
+                )
                 ChatView(nachrichten) {
                     sende(Nachricht.Text(null, it))
                 }
             }
         }
 
+        fun backToMenu() {
+            spiel.value = null
+            ende.value = null
+        }
+
         if (ende.value != null) {
-            Dialog(onDismissRequest = {
-                spiel.value = null
-                ende.value = null
-            }) {
+            Dialog(onDismissRequest = { backToMenu() }) {
                 Card {
-                    Text("${ende.value}", Modifier.padding(64.dp))
+                    Column(
+                        Modifier.width(512.dp).padding(32.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Text("${ende.value}")
+                        Button({ backToMenu() }) {
+                            Text("Zurück zur Lobby")
+                        }
+                    }
                 }
             }
         }
@@ -333,11 +350,20 @@ class Client(
                 return
             }
 
-            is Nachricht.Verbinden -> this.online[msg.name] = msg.self
+            is Nachricht.Verbinden -> {
+                this.online[msg.name] = msg.self
+                if (msg.update) return
+            }
+
             is Nachricht.Trennen -> this.online.remove(msg.name)
 
             is Nachricht.Room -> {
                 this.rooms.value = msg.names.toList()
+                return
+            }
+
+            is Nachricht.AmZug -> {
+                this.amZug.value = msg.name
                 return
             }
 
